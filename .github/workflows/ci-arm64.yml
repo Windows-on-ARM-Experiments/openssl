@@ -1,6 +1,8 @@
 name: Build OpenSSL Arm64
 
 on:
+  pull_request:
+    branches: [ "master" ]
   workflow_dispatch:
     inputs:
       openssl_build:
