@@ -17,16 +17,36 @@ on:
         type: boolean
 
 jobs:
-  build-openssl-clang-arm64:
+  build-openssl-arm64:
     runs-on: [self-hosted, Windows, ARM64, GCC]
     timeout-minutes: 600
 
     steps:
     
+    - name: Build OpenSSL Arm64
+      shell: cmd
+      run: |
+        echo on
+        rmdir /s /q openssl
+        git clone https://github.com/openssl/openssl.git --single-branch --depth 1
+        cd openssl
+        call "%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" arm64
+        set VSCMD_DEBUG=3
+        set PATH=%PATH%;%VCINSTALLDIR%\Tools\Llvm\ARM64\bin
+        perl Configure VC-WIN64-ARM
+        nmake
+
+  build-openssl-clang-arm64:
+    runs-on: [self-hosted, Windows, ARM64, GCC]
+    timeout-minutes: 600
+
+    steps:
+
     - name: Build OpenSSL with clang-cl Arm64
       shell: cmd
       run: |
         echo on
+        rmdir /s /q openssl
         git clone https://github.com/openssl/openssl.git --single-branch --depth 1
         cd openssl
         call "%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" arm64
