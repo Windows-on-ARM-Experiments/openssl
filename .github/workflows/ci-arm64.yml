@@ -26,9 +26,10 @@ jobs:
     - name: Build OpenSSL with clang-cl Arm64
       shell: cmd
       run: |
+        echo on
         git clone https://github.com/openssl/openssl.git --single-branch --depth 1
         cd openssl
-        call "%VCINSTALLDIR%\Auxiliary\Build\vcvarsall.bat" arm64
+        call "%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" arm64
         set VSCMD_DEBUG=3
         set PATH=%PATH%;%VCINSTALLDIR%\Tools\Llvm\ARM64\bin
         perl Configure VC-WIN64-CLANGASM-ARM
