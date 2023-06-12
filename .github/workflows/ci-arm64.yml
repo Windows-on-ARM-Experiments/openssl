@@ -18,8 +18,6 @@ on:
 
 jobs:
   build-openssl-clang-arm64:
-    if: ${{ inputs.openssl_clang_build }}
-
     runs-on: [self-hosted, Windows, ARM64, GCC]
     timeout-minutes: 600
 
