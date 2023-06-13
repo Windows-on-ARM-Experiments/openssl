@@ -52,6 +52,6 @@ jobs:
         call "%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" arm64
         set VSCMD_DEBUG=3
         set PATH=%PATH%;%VCINSTALLDIR%\Tools\Llvm\ARM64\bin
-        perl Configure VC-WIN64-CLANGASM-ARM
+        perl Configure VC-CLANG-WIN64-CLANGASM-ARM
         nmake
 
