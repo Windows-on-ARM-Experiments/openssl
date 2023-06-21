@@ -36,6 +36,8 @@ jobs:
         perl Configure VC-WIN64-ARM
         nmake
         nmake test
+        .\apps\openssl.exe speed 2> benchmark.txt
+        type benchmark.txt
 
   build-openssl-clang-arm64:
     runs-on: [self-hosted, Windows, ARM64, GCC]
@@ -56,6 +58,8 @@ jobs:
         perl Configure VC-CLANG-WIN64-CLANGASM-ARM
         nmake
         nmake test
+        .\apps\openssl.exe speed 2> benchmark.txt
+        type benchmark.txt
 
   build-openssl-aarch64:
     runs-on: [self-hosted, Linux, ARM64, GCC]
@@ -71,3 +75,5 @@ jobs:
         ./Configure
         make
         make test
+        LD_LIBRARY_PATH=$(pwd) apps/openssl speed > benchmark.txt 2>&1
+        cat benchmark.txt
