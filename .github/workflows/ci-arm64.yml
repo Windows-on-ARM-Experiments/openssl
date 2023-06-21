@@ -35,6 +35,7 @@ jobs:
         set PATH=%PATH%;%VCINSTALLDIR%\Tools\Llvm\ARM64\bin
         perl Configure VC-WIN64-ARM
         nmake
+        nmake test
 
   build-openssl-clang-arm64:
     runs-on: [self-hosted, Windows, ARM64, GCC]
@@ -54,4 +55,4 @@ jobs:
         set PATH=%PATH%;%VCINSTALLDIR%\Tools\Llvm\ARM64\bin
         perl Configure VC-CLANG-WIN64-CLANGASM-ARM
         nmake
-
+        nmake test
