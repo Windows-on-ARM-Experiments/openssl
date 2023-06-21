@@ -56,3 +56,18 @@ jobs:
         perl Configure VC-CLANG-WIN64-CLANGASM-ARM
         nmake
         nmake test
+
+  build-openssl-aarch64:
+    runs-on: [self-hosted, Linux, ARM64, GCC]
+    timeout-minutes: 600
+
+    steps:
+    
+    - name: Build OpenSSL Aarch64
+      run: |
+        rm -R openssl
+        git clone https://github.com/openssl/openssl.git --single-branch --depth 1
+        cd openssl
+        ./Configure
+        make
+        make test
