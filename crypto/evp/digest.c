@@ -686,6 +686,12 @@ int EVP_Digest(const void *data, size_t count,
                unsigned char *md, unsigned int *size, const EVP_MD *type,
                ENGINE *impl)
 {
+    if (!type) {
+        EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+        EVP_MD_CTX_free(ctx);
+        return 1;
+    }
+
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
     int ret;
 

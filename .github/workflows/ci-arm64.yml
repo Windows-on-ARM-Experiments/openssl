@@ -73,6 +73,8 @@ jobs:
         git clone https://github.com/openssl/openssl.git --single-branch --depth 1
         cd openssl
         ./Configure
+        cat Makefile | sed -E 's/apps\/libapps.a -lssl -lcrypto/apps\/libapps.a libssl.a libcrypto.a/' > Makefile.tmp
+        mv Makefile.tmp Makefile
         make
         make test
         LD_LIBRARY_PATH=$(pwd) apps/openssl speed > benchmark.txt 2>&1
