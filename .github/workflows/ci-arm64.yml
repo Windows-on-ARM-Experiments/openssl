@@ -22,14 +22,13 @@ jobs:
     timeout-minutes: 600
 
     steps:
+    - name: Git checkout
+      uses: actions/checkout@v3
     
     - name: Build OpenSSL Arm64
       shell: cmd
       run: |
         echo on
-        rmdir /s /q openssl
-        git clone https://github.com/openssl/openssl.git --single-branch --depth 1
-        cd openssl
         call "%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" arm64
         set VSCMD_DEBUG=3
         set PATH=%PATH%;%VCINSTALLDIR%\Tools\Llvm\ARM64\bin
@@ -44,14 +43,13 @@ jobs:
     timeout-minutes: 600
 
     steps:
+    - name: Git checkout
+      uses: actions/checkout@v3
 
     - name: Build OpenSSL with clang-cl Arm64
       shell: cmd
       run: |
         echo on
-        rmdir /s /q openssl
-        git clone https://github.com/openssl/openssl.git --single-branch --depth 1
-        cd openssl
         call "%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" arm64
         set VSCMD_DEBUG=3
         set PATH=%PATH%;%VCINSTALLDIR%\Tools\Llvm\ARM64\bin
@@ -66,12 +64,11 @@ jobs:
     timeout-minutes: 600
 
     steps:
-    
+    - name: Git checkout
+      uses: actions/checkout@v3
+
     - name: Build OpenSSL Aarch64
       run: |
-        [ -d openssl ] && rm -R openssl
-        git clone https://github.com/openssl/openssl.git --single-branch --depth 1
-        cd openssl
         ./Configure
         cat Makefile | sed -E 's/apps\/libapps.a -lssl -lcrypto/apps\/libapps.a libssl.a libcrypto.a/' > Makefile.tmp
         mv Makefile.tmp Makefile
