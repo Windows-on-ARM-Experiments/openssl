@@ -34,6 +34,7 @@ jobs:
         set PATH=%PATH%;%VCINSTALLDIR%\Tools\Llvm\ARM64\bin
         perl Configure VC-WIN64-ARM
         nmake
+#        nmake test
         .\apps\openssl.exe speed 2> benchmark.txt
         type benchmark.txt
 
@@ -54,6 +55,7 @@ jobs:
         set PATH=%PATH%;%VCINSTALLDIR%\Tools\Llvm\ARM64\bin
         perl Configure VC-CLANG-WIN64-CLANGASM-ARM
         nmake
+#        nmake test
         .\apps\openssl.exe speed 2> benchmark.txt
         type benchmark.txt
 
@@ -71,5 +73,6 @@ jobs:
         cat Makefile | sed -E 's/apps\/libapps.a -lssl -lcrypto/apps\/libapps.a libssl.a libcrypto.a/' > Makefile.tmp
         mv Makefile.tmp Makefile
         make
+#        make test
         LD_LIBRARY_PATH=$(pwd) apps/openssl speed > benchmark.txt 2>&1
         cat benchmark.txt
