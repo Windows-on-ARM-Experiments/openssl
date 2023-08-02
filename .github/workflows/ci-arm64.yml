@@ -5,19 +5,19 @@ on:
     branches: [ "master" ]
   workflow_dispatch:
     inputs:
-      openssl_build:
-        description: 'OpenSSL Arm64'
+      openssl_windows_arm64_msvc_build:
+        description: 'OpenSSL Windows Arm64 MSVC'
         required: false
         default: true
         type: boolean
-      openssl_clang_build:
-        description: 'OpenSSL with clang-cl Arm64'
+      openssl_windows_arm64_clangcl_build:
+        description: 'OpenSSL Windows Arm64 clang-cl'
         required: false
         default: true
         type: boolean
 
 jobs:
-  build-openssl-arm64:
+  build-openssl-windows-arm64-msvc:
     runs-on: [self-hosted, Windows, ARM64, GCC]
     timeout-minutes: 600
 
@@ -25,7 +25,7 @@ jobs:
     - name: Git checkout
       uses: actions/checkout@v3
     
-    - name: Build OpenSSL Arm64
+    - name: Build OpenSSL on Windows Arm64 with MSVC
       shell: cmd
       run: |
         echo on
@@ -38,7 +38,7 @@ jobs:
         .\apps\openssl.exe speed 2> benchmark.txt
         type benchmark.txt
 
-  build-openssl-clang-arm64:
+  build-openssl-windows-arm64-clangcl:
     runs-on: [self-hosted, Windows, ARM64, GCC]
     timeout-minutes: 600
 
@@ -46,7 +46,7 @@ jobs:
     - name: Git checkout
       uses: actions/checkout@v3
 
-    - name: Build OpenSSL with clang-cl Arm64
+    - name: Build OpenSSL on Windows Arm64 with clang-cl
       shell: cmd
       run: |
         echo on
@@ -59,7 +59,7 @@ jobs:
         .\apps\openssl.exe speed 2> benchmark.txt
         type benchmark.txt
 
-  build-openssl-aarch64:
+  build-openssl-linux-aarch64-gcc:
     runs-on: [self-hosted, Linux, ARM64, GCC]
     timeout-minutes: 600
 
@@ -67,7 +67,7 @@ jobs:
     - name: Git checkout
       uses: actions/checkout@v3
 
-    - name: Build OpenSSL Aarch64
+    - name: Build OpenSSL on Linux AArch64 with GCC
       run: |
         ./Configure
         cat Makefile | sed -E 's/apps\/libapps.a -lssl -lcrypto/apps\/libapps.a libssl.a libcrypto.a/' > Makefile.tmp
