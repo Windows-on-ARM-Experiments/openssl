@@ -23,16 +23,6 @@ static CRYPTO_malloc_fn malloc_impl = CRYPTO_malloc;
 static CRYPTO_realloc_fn realloc_impl = CRYPTO_realloc;
 static CRYPTO_free_fn free_impl = CRYPTO_free;
 
-#if defined(_WIN32)
-    #define EXPORT_SYMBOL __declspec(dllexport)
-    #define IMPORT_SYMBOL __declspec(dllimport)
-#else
-    #define EXPORT_SYMBOL
-    #define IMPORT_SYMBOL
-#endif
-
-EXPORT_SYMBOL int malloc_count2 = 0;
-
 #if !defined(OPENSSL_NO_CRYPTO_MDEBUG) && !defined(FIPS_MODULE)
 # include "internal/tsan_assist.h"
 
@@ -182,7 +172,6 @@ void *CRYPTO_malloc(size_t num, const char *file, int line)
 {
     void *ptr;
 
-    ++malloc_count2;
     INCREMENT(malloc_count);
     if (malloc_impl != CRYPTO_malloc) {
         ptr = malloc_impl(num, file, line);

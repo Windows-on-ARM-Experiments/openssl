@@ -120,18 +120,6 @@ typedef struct openssl_speed_sec_st {
     int sig;
 } openssl_speed_sec_t;
 
-#if defined(_WIN32)
-    #define EXPORT_SYMBOL __declspec(dllexport)
-    #define IMPORT_SYMBOL __declspec(dllimport)
-#else
-    #define EXPORT_SYMBOL
-    #define IMPORT_SYMBOL
-#endif
-
-IMPORT_SYMBOL extern int malloc_count2;
-float allocations_per_second = 0;
-
-
 static volatile int run = 0;
 
 static int mr = 0;  /* machine-readeable output format to merge fork results */
@@ -608,19 +596,14 @@ static int have_cipher(const char *name)
 
 static int EVP_Digest_loop(const char *mdname, ossl_unused int algindex, void *args)
 {
-    unsigned char *buf = NULL;
-    if (args) {
-        loopargs_t *tempargs = *(loopargs_t **) args;
-        buf = tempargs->buf;
-    }
-    
+    loopargs_t *tempargs = *(loopargs_t **) args;
+    unsigned char *buf = tempargs->buf;
     unsigned char digest[EVP_MAX_MD_SIZE];
     int count;
     EVP_MD *md = NULL;
 
-    if (args && !opt_md_silent(mdname, &md))
+    if (!opt_md_silent(mdname, &md))
         return -1;
-        
     for (count = 0; COND(c[algindex][testnum]); count++) {
         if (!EVP_Digest(buf, (size_t)lengths[testnum], digest, NULL, md,
                         NULL)) {
@@ -628,9 +611,7 @@ static int EVP_Digest_loop(const char *mdname, ossl_unused int algindex, void *a
             break;
         }
     }
-
-    if (md)
-        EVP_MD_free(md);
+    EVP_MD_free(md);
     return count;
 }
 
@@ -657,11 +638,6 @@ static int EVP_Digest_MD4_loop(void *args)
 static int MD5_loop(void *args)
 {
     return EVP_Digest_loop("md5", D_MD5, args);
-}
-
-static int allocation_loop(void *args)
-{
-    return EVP_Digest_loop("md5", D_MD5, NULL);
 }
 
 static int EVP_MAC_loop(ossl_unused int algindex, void *args)
@@ -1314,7 +1290,6 @@ static int SIG_verify_loop(void *args)
 static int run_benchmark(int async_jobs,
                          int (*loop_function) (void *), loopargs_t * loopargs)
 {
-    malloc_count2 = 0;
     int job_op_count = 0;
     int total_op_count = 0;
     int num_inprogress = 0;
@@ -2343,27 +2318,6 @@ int speed_main(int argc, char **argv)
     signal(SIGALRM, alarmed);
 #endif
 
-    {
-        for (testnum = 0; testnum < size_num; testnum++) {
-            BIO_printf(bio_err, "Memory allocation: " );
-            run = 1;
-            alarm(seconds.sym);
-
-            Time_F(START);
-            count = run_benchmark(async_jobs, allocation_loop, loopargs);
-            d = Time_F(STOP);
-            float allocations_per_second_test = ((float) malloc_count2) / d;
-            BIO_printf(bio_err, "allocations: %d per_sec: %.10f\n",  malloc_count2, allocations_per_second_test);
-            allocations_per_second += allocations_per_second_test;
-            if (count < 0)
-                break;
-        }
-
-        allocations_per_second /= size_num;
-
-        BIO_printf(bio_err, "Average memory allocations per second: %.10f\n", allocations_per_second);
-    }
-
     if (doit[D_MD2]) {
         for (testnum = 0; testnum < size_num; testnum++) {
             print_message(names[D_MD2], lengths[testnum], seconds.sym);
@@ -2869,8 +2823,8 @@ skip_hmac:
             d = Time_F(STOP);
             BIO_printf(bio_err,
                        mr ? "+R1:%ld:%d:%.2f\n"
-                       : "%ld %u bits private RSA's in %.2fs allocations: %d per_sec: %.10f\n",
-                       count, rsa_keys[testnum].bits, d, malloc_count2, count / (d - malloc_count2 / allocations_per_second));
+                       : "%ld %u bits private RSA's in %.2fs\n",
+                       count, rsa_keys[testnum].bits, d);
             rsa_results[testnum][0] = (double)count / d;
             op_count = count;
         }
@@ -2899,8 +2853,8 @@ skip_hmac:
             d = Time_F(STOP);
             BIO_printf(bio_err,
                        mr ? "+R2:%ld:%d:%.2f\n"
-                       : "%ld %u bits public RSA's in %.2fs allocations: %d per_sec: %.10f\n",
-                       count, rsa_keys[testnum].bits, d,  malloc_count2, count / (d - malloc_count2 / allocations_per_second));
+                       : "%ld %u bits public RSA's in %.2fs\n",
+                       count, rsa_keys[testnum].bits, d);
             rsa_results[testnum][1] = (double)count / d;
         }
 
@@ -2946,8 +2900,8 @@ skip_hmac:
             d = Time_F(STOP);
             BIO_printf(bio_err,
                        mr ? "+R3:%ld:%u:%.2f\n"
-                       : "%ld %u bits DSA signs in %.2fs allocations: %d per_sec: %.10f\n",
-                       count, dsa_bits[testnum], d, malloc_count2, count / (d - malloc_count2 / allocations_per_second));
+                       : "%ld %u bits DSA signs in %.2fs\n",
+                       count, dsa_bits[testnum], d);
             dsa_results[testnum][0] = (double)count / d;
             op_count = count;
         }
@@ -2976,8 +2930,8 @@ skip_hmac:
             d = Time_F(STOP);
             BIO_printf(bio_err,
                        mr ? "+R4:%ld:%u:%.2f\n"
-                       : "%ld %u bits DSA verify in %.2fs allocations: %d per_sec: %.10f\n",
-                       count, dsa_bits[testnum], d, malloc_count2, count / (d - malloc_count2 / allocations_per_second));
+                       : "%ld %u bits DSA verify in %.2fs\n",
+                       count, dsa_bits[testnum], d);
             dsa_results[testnum][1] = (double)count / d;
         }
 
@@ -3023,8 +2977,8 @@ skip_hmac:
             d = Time_F(STOP);
             BIO_printf(bio_err,
                        mr ? "+R5:%ld:%u:%.2f\n"
-                       : "%ld %u bits ECDSA signs in %.2fs allocations: %d per_sec: %.10f\n",
-                       count, ec_curves[testnum].bits, d, malloc_count2, count / (d - malloc_count2 / allocations_per_second));
+                       : "%ld %u bits ECDSA signs in %.2fs\n",
+                       count, ec_curves[testnum].bits, d);
             ecdsa_results[testnum][0] = (double)count / d;
             op_count = count;
         }
@@ -3053,8 +3007,8 @@ skip_hmac:
             d = Time_F(STOP);
             BIO_printf(bio_err,
                        mr ? "+R6:%ld:%u:%.2f\n"
-                       : "%ld %u bits ECDSA verify in %.2fs allocations: %d per_sec: %.10f\n",
-                       count, ec_curves[testnum].bits, d, malloc_count2, count / (d - malloc_count2 / allocations_per_second));
+                       : "%ld %u bits ECDSA verify in %.2fs\n",
+                       count, ec_curves[testnum].bits, d);
             ecdsa_results[testnum][1] = (double)count / d;
         }
 
@@ -3140,8 +3094,8 @@ skip_hmac:
             d = Time_F(STOP);
             BIO_printf(bio_err,
                        mr ? "+R7:%ld:%d:%.2f\n" :
-                       "%ld %u-bits ECDH ops in %.2fs allocations: %d per_sec: %.10f\n", count,
-                       ec_curves[testnum].bits, d, malloc_count2, count / (d - malloc_count2 / allocations_per_second));
+                       "%ld %u-bits ECDH ops in %.2fs\n", count,
+                       ec_curves[testnum].bits, d);
             ecdh_results[testnum][0] = (double)count / d;
             op_count = count;
         }
@@ -3225,9 +3179,9 @@ skip_hmac:
 
                 BIO_printf(bio_err,
                            mr ? "+R8:%ld:%u:%s:%.2f\n" :
-                           "%ld %u bits %s signs in %.2fs allocations: %d per_sec: %.10f\n",
+                           "%ld %u bits %s signs in %.2fs \n",
                            count, ed_curves[testnum].bits,
-                           ed_curves[testnum].name, d, malloc_count2, count / (d - malloc_count2 / allocations_per_second));
+                           ed_curves[testnum].name, d);
                 eddsa_results[testnum][0] = (double)count / d;
                 op_count = count;
             }
@@ -3252,9 +3206,9 @@ skip_hmac:
                 d = Time_F(STOP);
                 BIO_printf(bio_err,
                            mr ? "+R9:%ld:%u:%s:%.2f\n"
-                           : "%ld %u bits %s verify in %.2fs allocations: %d per_sec: %.10f\n",
+                           : "%ld %u bits %s verify in %.2fs\n",
                            count, ed_curves[testnum].bits,
-                           ed_curves[testnum].name, d, malloc_count2, count / (d - malloc_count2 / allocations_per_second));
+                           ed_curves[testnum].name, d);
                 eddsa_results[testnum][1] = (double)count / d;
             }
 
@@ -3355,9 +3309,9 @@ skip_hmac:
 
                 BIO_printf(bio_err,
                            mr ? "+R10:%ld:%u:%s:%.2f\n" :
-                           "%ld %u bits %s signs in %.2fs allocations: %d per_sec: %.10f\n",
+                           "%ld %u bits %s signs in %.2fs \n",
                            count, sm2_curves[testnum].bits,
-                           sm2_curves[testnum].name, d, malloc_count2, count / (d - malloc_count2 / allocations_per_second));
+                           sm2_curves[testnum].name, d);
                 sm2_results[testnum][0] = (double)count / d;
                 op_count = count;
             }
@@ -3383,9 +3337,9 @@ skip_hmac:
                 d = Time_F(STOP);
                 BIO_printf(bio_err,
                            mr ? "+R11:%ld:%u:%s:%.2f\n"
-                           : "%ld %u bits %s verify in %.2fs allocations: %d per_sec: %.10f\n",
+                           : "%ld %u bits %s verify in %.2fs\n",
                            count, sm2_curves[testnum].bits,
-                           sm2_curves[testnum].name, d, malloc_count2, count / (d - malloc_count2 / allocations_per_second));
+                           sm2_curves[testnum].name, d);
                 sm2_results[testnum][1] = (double)count / d;
             }
 
@@ -3569,8 +3523,8 @@ skip_hmac:
             d = Time_F(STOP);
             BIO_printf(bio_err,
                        mr ? "+R12:%ld:%d:%.2f\n" :
-                       "%ld %u-bits FFDH ops in %.2fs allocations: %d per_sec: %.10f\n", count,
-                       ffdh_params[testnum].bits, d, malloc_count2, count / (d - malloc_count2 / allocations_per_second));
+                       "%ld %u-bits FFDH ops in %.2fs\n", count,
+                       ffdh_params[testnum].bits, d);
             ffdh_results[testnum][0] = (double)count / d;
             op_count = count;
         }
@@ -3735,8 +3689,8 @@ skip_hmac:
             d = Time_F(STOP);
             BIO_printf(bio_err,
                        mr ? "+R13:%ld:%s:%.2f\n" :
-                       "%ld %s KEM keygens in %.2fs  allocations: %d per_sec: %.10f\n", count,
-                       kem_name, d, malloc_count2, count / (d - malloc_count2 / allocations_per_second));
+                       "%ld %s KEM keygens in %.2fs\n", count,
+                       kem_name, d);
             kems_results[testnum][0] = (double)count / d;
             op_count = count;
             kskey_print_message(kem_name, "encaps", seconds.kem);
@@ -3746,8 +3700,8 @@ skip_hmac:
             d = Time_F(STOP);
             BIO_printf(bio_err,
                        mr ? "+R14:%ld:%s:%.2f\n" :
-                       "%ld %s KEM encaps in %.2fs allocations: %d per_sec: %.10f\n", count,
-                       kem_name, d, malloc_count2, count / (d - malloc_count2 / allocations_per_second));
+                       "%ld %s KEM encaps in %.2fs\n", count,
+                       kem_name, d);
             kems_results[testnum][1] = (double)count / d;
             op_count = count;
             kskey_print_message(kem_name, "decaps", seconds.kem);
@@ -3757,8 +3711,8 @@ skip_hmac:
             d = Time_F(STOP);
             BIO_printf(bio_err,
                        mr ? "+R15:%ld:%s:%.2f\n" :
-                       "%ld %s KEM decaps in %.2fs allocations: %d per_sec: %.10f\n", count,
-                       kem_name, d, malloc_count2, count / (d - malloc_count2 / allocations_per_second));
+                       "%ld %s KEM decaps in %.2fs\n", count,
+                       kem_name, d);
             kems_results[testnum][2] = (double)count / d;
             op_count = count;
         }
@@ -3912,8 +3866,8 @@ skip_hmac:
             d = Time_F(STOP);
             BIO_printf(bio_err,
                        mr ? "+R16:%ld:%s:%.2f\n" :
-                       "%ld %s signature keygens in %.2fs allocations: %d per_sec: %.10f\n", count,
-                       sig_name, d, malloc_count2, count / (d - malloc_count2 / allocations_per_second));
+                       "%ld %s signature keygens in %.2fs\n", count,
+                       sig_name, d);
             sigs_results[testnum][0] = (double)count / d;
             op_count = count;
             kskey_print_message(sig_name, "signs", seconds.sig);
@@ -3923,8 +3877,8 @@ skip_hmac:
             d = Time_F(STOP);
             BIO_printf(bio_err,
                        mr ? "+R17:%ld:%s:%.2f\n" :
-                       "%ld %s signature signs in %.2fs allocations: %d per_sec: %.10f\n", count,
-                       sig_name, d, malloc_count2, count / (d - malloc_count2 / allocations_per_second));
+                       "%ld %s signature signs in %.2fs\n", count,
+                       sig_name, d);
             sigs_results[testnum][1] = (double)count / d;
             op_count = count;
 
@@ -3935,8 +3889,8 @@ skip_hmac:
             d = Time_F(STOP);
             BIO_printf(bio_err,
                        mr ? "+R18:%ld:%s:%.2f\n" :
-                       "%ld %s signature verifys in %.2fs allocations: %d per_sec: %.10f\n", count,
-                       sig_name, d, malloc_count2, count / (d - malloc_count2 / allocations_per_second));
+                       "%ld %s signature verifys in %.2fs\n", count,
+                       sig_name, d);
             sigs_results[testnum][2] = (double)count / d;
             op_count = count;
         }
@@ -4290,7 +4244,7 @@ static void print_result(int alg, int run_no, int count, double time_used)
     }
     BIO_printf(bio_err,
                mr ? "+R:%d:%s:%f\n"
-               : "%d %s's in %.2fs   allocations: %d per_sec: %.10f\n", count, names[alg], time_used, malloc_count2, count / (time_used - malloc_count2 / allocations_per_second));
+               : "%d %s's in %.2fs\n", count, names[alg], time_used);
     results[alg][run_no] = ((double)count) / time_used * lengths[run_no];
 }
 
