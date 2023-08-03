@@ -1,0 +1,76 @@
+name: Build OpenSSL Arm64
+
+on:
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+    inputs:
+      openssl_windows_arm64_msvc_build:
+        description: 'OpenSSL Windows Arm64 MSVC'
+        required: false
+        default: true
+        type: boolean
+      openssl_windows_arm64_clangcl_build:
+        description: 'OpenSSL Windows Arm64 clang-cl'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  build-openssl-windows-arm64-msvc:
+    runs-on: [self-hosted, Windows, ARM64, GCC]
+    timeout-minutes: 600
+
+    steps:
+    - name: Git checkout
+      uses: actions/checkout@v3
+    
+    - name: Build OpenSSL on Windows Arm64 with MSVC
+      shell: cmd
+      run: |
+        echo on
+        call "%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" arm64
+        set VSCMD_DEBUG=3
+        set PATH=%PATH%;%VCINSTALLDIR%\Tools\Llvm\ARM64\bin
+        perl Configure VC-WIN64-ARM
+        nmake
+        nmake test
+        .\apps\openssl.exe speed 2> benchmark.txt
+        type benchmark.txt
+
+  build-openssl-windows-arm64-clangcl:
+    runs-on: [self-hosted, Windows, ARM64, GCC]
+    timeout-minutes: 600
+
+    steps:
+    - name: Git checkout
+      uses: actions/checkout@v3
+
+    - name: Build OpenSSL on Windows Arm64 with clang-cl
+      shell: cmd
+      run: |
+        echo on
+        call "%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" arm64
+        set VSCMD_DEBUG=3
+        set PATH=%PATH%;%VCINSTALLDIR%\Tools\Llvm\ARM64\bin
+        perl Configure VC-CLANG-WIN64-CLANGASM-ARM
+        nmake
+        nmake test
+        .\apps\openssl.exe speed 2> benchmark.txt
+        type benchmark.txt
+
+  build-openssl-linux-aarch64-gcc:
+    runs-on: [self-hosted, Linux, ARM64, GCC]
+    timeout-minutes: 600
+
+    steps:
+    - name: Git checkout
+      uses: actions/checkout@v3
+
+    - name: Build OpenSSL on Linux AArch64 with GCC
+      run: |
+        ./Configure
+        make
+        make test
+        LD_LIBRARY_PATH=$(pwd) apps/openssl speed > benchmark.txt 2>&1
+        cat benchmark.txt
