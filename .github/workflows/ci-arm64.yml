@@ -5,6 +5,10 @@ on:
     branches: [ "master" ]
   workflow_dispatch:
     inputs:
+      branch:
+        description: 'Branch name'
+        required: false
+        type: string
       openssl_windows_arm64_msvc_build:
         description: 'OpenSSL Windows Arm64 MSVC'
         required: false
@@ -15,15 +19,23 @@ on:
         required: false
         default: true
         type: boolean
+ workflow_call:
+    inputs:
+      branch:
+        description: 'Branch name'
+        required: false
+        type: string
 
 jobs:
   build-openssl-windows-arm64-msvc:
-    runs-on: [self-hosted, Windows, ARM64, GCC]
+    runs-on: [self-hosted, Windows, ARM64, GCC, D2ps_v5]
     timeout-minutes: 600
 
     steps:
     - name: Git checkout
       uses: actions/checkout@v3
+      with:
+        ref: ${{ inputs.branch }}
     
     - name: Build OpenSSL on Windows Arm64 with MSVC
       shell: cmd
@@ -39,12 +51,14 @@ jobs:
         type benchmark.txt
 
   build-openssl-windows-arm64-clangcl:
-    runs-on: [self-hosted, Windows, ARM64, GCC]
+    runs-on: [self-hosted, Windows, ARM64, GCC, D2ps_v5]
     timeout-minutes: 600
 
     steps:
     - name: Git checkout
       uses: actions/checkout@v3
+      with:
+        ref: ${{ inputs.branch }}
 
     - name: Build OpenSSL on Windows Arm64 with clang-cl
       shell: cmd
@@ -60,12 +74,14 @@ jobs:
         type benchmark.txt
 
   build-openssl-linux-aarch64-gcc:
-    runs-on: [self-hosted, Linux, ARM64, GCC]
+    runs-on: [self-hosted, Linux, ARM64, GCC, D2ps_v5]
     timeout-minutes: 600
 
     steps:
     - name: Git checkout
       uses: actions/checkout@v3
+      with:
+        ref: ${{ inputs.branch }}
 
     - name: Build OpenSSL on Linux AArch64 with GCC
       run: |

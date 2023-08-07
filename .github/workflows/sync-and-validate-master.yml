@@ -1,0 +1,24 @@
+name: Sync and validate master branch on Arm64 Windows
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
+
+jobs:
+  sync-fork:
+    name: Sync master
+    runs-on: ubuntu-latest
+
+    steps:
+    - env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: gh repo sync Windows-on-ARM-Experiments/openssl -b master
+  
+  validate-arm64-windows:
+    name: Valitate the latest Arm64 Windows build
+    needs: sync-fork
+    uses: ./.github/workflows/ci-arm64.yml
+    with:
+      branch: ${{ github.ref }}
+      merge-with-branch: master
