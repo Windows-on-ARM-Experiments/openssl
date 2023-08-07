@@ -19,7 +19,7 @@ on:
         required: false
         default: true
         type: boolean
- workflow_call:
+  workflow_call:
     inputs:
       branch:
         description: 'Branch name'
