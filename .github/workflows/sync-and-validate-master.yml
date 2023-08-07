@@ -23,4 +23,3 @@ jobs:
     uses: ./.github/workflows/ci-arm64.yml
     with:
       branch: ${{ github.ref }}
-      merge-with-branch: master
