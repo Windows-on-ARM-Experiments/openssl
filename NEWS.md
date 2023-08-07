@@ -46,6 +46,7 @@ OpenSSL 3.1
     FIPS provider, TLS 1.2 will, by default, mandate the use of an
     extended master secret and the Hash and HMAC DRBGs will not operate
     with truncated digests.
+  * Enable extra Arm64 optimization on Windows for GHASH, RAND and AES. 
 
 ### Major changes between OpenSSL 3.1.0 and OpenSSL 3.1.1 [30 May 2023]
 
