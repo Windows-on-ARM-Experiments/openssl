@@ -49,6 +49,10 @@
 #   else
 #    error "unsupported ARM architecture"
 #   endif
+#  else
+#   if  defined(__ARM_ARCH)
+#    define __ARM_ARCH__ __ARM_ARCH
+#   endif
 #  endif
 # endif
 
