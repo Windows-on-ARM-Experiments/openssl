@@ -30,7 +30,7 @@ QUIC_RSTREAM *ossl_quic_rstream_new(QUIC_RXFC *rxfc,
         return NULL;
 
     ring_buf_init(&ret->rbuf);
-    if (!ring_buf_resize(&ret->rbuf, rbuf_size)) {
+    if (!ring_buf_resize(&ret->rbuf, rbuf_size, 0)) {
         OPENSSL_free(ret);
         return NULL;
     }
@@ -43,11 +43,14 @@ QUIC_RSTREAM *ossl_quic_rstream_new(QUIC_RXFC *rxfc,
 
 void ossl_quic_rstream_free(QUIC_RSTREAM *qrs)
 {
+    int cleanse;
+
     if (qrs == NULL)
         return;
 
+    cleanse = qrs->fl.cleanse;
     ossl_sframe_list_destroy(&qrs->fl);
-    ring_buf_destroy(&qrs->rbuf);
+    ring_buf_destroy(&qrs->rbuf, cleanse);
     OPENSSL_free(qrs);
 }
 
@@ -120,7 +123,7 @@ static int read_internal(QUIC_RSTREAM *qrs, unsigned char *buf, size_t size,
 
     if (drop && offset != 0) {
         ret = ossl_sframe_list_drop_frames(&qrs->fl, offset);
-        ring_buf_cpop_range(&qrs->rbuf, 0, offset - 1);
+        ring_buf_cpop_range(&qrs->rbuf, 0, offset - 1, qrs->fl.cleanse);
     }
 
     if (ret) {
@@ -245,7 +248,7 @@ int ossl_quic_rstream_release_record(QUIC_RSTREAM *qrs, size_t read_len)
         return 0;
 
     if (offset > 0)
-        ring_buf_cpop_range(&qrs->rbuf, 0, offset - 1);
+        ring_buf_cpop_range(&qrs->rbuf, 0, offset - 1, qrs->fl.cleanse);
 
     if (qrs->rxfc != NULL) {
         OSSL_TIME rtt = get_rtt(qrs);
@@ -277,12 +280,16 @@ int ossl_quic_rstream_move_to_rbuf(QUIC_RSTREAM *qrs)
 
 int ossl_quic_rstream_resize_rbuf(QUIC_RSTREAM *qrs, size_t rbuf_size)
 {
-    /* TODO(QUIC): Do we need to distinguish different error conditions ? */
     if (ossl_sframe_list_is_head_locked(&qrs->fl))
         return 0;
 
-    if (!ring_buf_resize(&qrs->rbuf, rbuf_size))
+    if (!ring_buf_resize(&qrs->rbuf, rbuf_size, qrs->fl.cleanse))
         return 0;
 
     return 1;
+}
+
+void ossl_quic_rstream_set_cleanse(QUIC_RSTREAM *qrs, int cleanse)
+{
+    qrs->fl.cleanse = cleanse;
 }

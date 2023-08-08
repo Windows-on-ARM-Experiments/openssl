@@ -587,7 +587,7 @@ static int cert_response(OSSL_CMP_CTX *ctx, int sleep, int rid,
         return 0;
     if (rid == OSSL_CMP_CERTREQID_NONE) { /* used for OSSL_CMP_PKIBODY_P10CR */
         rid = ossl_cmp_asn1_get_int(crep->certReqId);
-        if (rid != OSSL_CMP_CERTREQID_NONE) {
+        if (rid < OSSL_CMP_CERTREQID_NONE) {
             ERR_raise(ERR_LIB_CMP, CMP_R_BAD_REQUEST_ID);
             return 0;
         }
@@ -776,7 +776,8 @@ int OSSL_CMP_exec_RR_ses(OSSL_CMP_CTX *ctx)
         return 0;
     }
     ctx->status = OSSL_CMP_PKISTATUS_request;
-    if (ctx->oldCert == NULL && ctx->p10CSR == NULL) {
+    if (ctx->oldCert == NULL && ctx->p10CSR == NULL
+        && (ctx->serialNumber == NULL || ctx->issuer == NULL)) {
         ERR_raise(ERR_LIB_CMP, CMP_R_MISSING_REFERENCE_CERT);
         return 0;
     }

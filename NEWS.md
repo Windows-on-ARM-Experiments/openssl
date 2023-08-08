@@ -22,6 +22,7 @@ OpenSSL 3.2
 
 ### Major changes between OpenSSL 3.1 and OpenSSL 3.2 [under development]
 
+  * Added client side support for QUIC.
   * Add Raw Public Key (RFC7250) support.
   * Added support for certificate compression (RFC8879), including
     library support for Brotli and Zstandard compression.
@@ -36,7 +37,17 @@ OpenSSL 3.2
 OpenSSL 3.1
 -----------
 
-### Major changes between OpenSSL 3.1.0 and OpenSSL 3.1.1 [under development]
+### Major changes between OpenSSL 3.1.1 and OpenSSL 3.1.2 [under development]
+
+  * Fix excessive time spent checking DH q parameter value ([CVE-2023-3817])
+  * Fix DH_check() excessive time with over sized modulus ([CVE-2023-3446])
+  * Do not ignore empty associated data entries with AES-SIV ([CVE-2023-2975])
+  * When building with the `enable-fips` option and using the resulting
+    FIPS provider, TLS 1.2 will, by default, mandate the use of an
+    extended master secret and the Hash and HMAC DRBGs will not operate
+    with truncated digests.
+
+### Major changes between OpenSSL 3.1.0 and OpenSSL 3.1.1 [30 May 2023]
 
   * Mitigate for very slow `OBJ_obj2txt()` performance with gigantic OBJECT
     IDENTIFIER sub-identities.  ([CVE-2023-2650])
@@ -1450,7 +1461,7 @@ OpenSSL 0.9.x
   * Overhauled Win32 builds
   * Cleanups and fixes to the Big Number (BN) library
   * Support for ASN.1 GeneralizedTime
-  * Splitted ASN.1 SETs from SEQUENCEs
+  * Split ASN.1 SETs from SEQUENCEs
   * ASN1 and PEM support for Netscape Certificate Sequences
   * Overhauled Perl interface
   * Lots of source tree cleanups.
@@ -1471,6 +1482,9 @@ OpenSSL 0.9.x
 
 <!-- Links -->
 
+[CVE-2023-3817]: https://www.openssl.org/news/vulnerabilities.html#CVE-2023-3817
+[CVE-2023-3446]: https://www.openssl.org/news/vulnerabilities.html#CVE-2023-3446
+[CVE-2023-2975]: https://www.openssl.org/news/vulnerabilities.html#CVE-2023-2975
 [CVE-2023-2650]: https://www.openssl.org/news/vulnerabilities.html#CVE-2023-2650
 [CVE-2023-1255]: https://www.openssl.org/news/vulnerabilities.html#CVE-2023-1255
 [CVE-2023-0466]: https://www.openssl.org/news/vulnerabilities.html#CVE-2023-0466

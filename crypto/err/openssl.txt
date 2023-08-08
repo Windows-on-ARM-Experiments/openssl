@@ -235,6 +235,7 @@ CMP_R_GETTING_GENP:192:getting genp
 CMP_R_INVALID_ARGS:100:invalid args
 CMP_R_INVALID_GENP:193:invalid genp
 CMP_R_INVALID_OPTION:174:invalid option
+CMP_R_INVALID_ROOTCAKEYUPDATE:195:invalid rootcakeyupdate
 CMP_R_MISSING_CERTID:165:missing certid
 CMP_R_MISSING_KEY_INPUT_FOR_CREATING_PROTECTION:130:\
 	missing key input for creating protection
@@ -927,7 +928,7 @@ PEM_R_UNSUPPORTED_ENCRYPTION:114:unsupported encryption
 PEM_R_UNSUPPORTED_KEY_COMPONENTS:126:unsupported key components
 PEM_R_UNSUPPORTED_PUBLIC_KEY_TYPE:110:unsupported public key type
 PKCS12_R_CALLBACK_FAILED:115:callback failed
-PKCS12_R_CANT_PACK_STRUCTURE:100:cant pack structure
+PKCS12_R_CANT_PACK_STRUCTURE:100:can't pack structure
 PKCS12_R_CONTENT_TYPE_NOT_DATA:121:content type not data
 PKCS12_R_DECODE_ERROR:101:decode error
 PKCS12_R_ENCODE_ERROR:102:encode error
@@ -1497,6 +1498,9 @@ SSL_R_PROTOCOL_IS_SHUTDOWN:207:protocol is shutdown
 SSL_R_PSK_IDENTITY_NOT_FOUND:223:psk identity not found
 SSL_R_PSK_NO_CLIENT_CB:224:psk no client cb
 SSL_R_PSK_NO_SERVER_CB:225:psk no server cb
+SSL_R_QUIC_HANDSHAKE_LAYER_ERROR:393:quic handshake layer error
+SSL_R_QUIC_NETWORK_ERROR:387:quic network error
+SSL_R_QUIC_PROTOCOL_ERROR:382:quic protocol error
 SSL_R_READ_BIO_NOT_SET:211:read bio not set
 SSL_R_READ_TIMEOUT_EXPIRED:312:read timeout expired
 SSL_R_RECORDS_NOT_RELEASED:321:records not released
@@ -1558,6 +1562,10 @@ SSL_R_SSL_SESSION_ID_HAS_BAD_LENGTH:303:ssl session id has bad length
 SSL_R_SSL_SESSION_ID_TOO_LONG:408:ssl session id too long
 SSL_R_SSL_SESSION_VERSION_MISMATCH:210:ssl session version mismatch
 SSL_R_STILL_IN_INIT:121:still in init
+SSL_R_STREAM_FINISHED:365:stream finished
+SSL_R_STREAM_RECV_ONLY:366:stream recv only
+SSL_R_STREAM_RESET:375:stream reset
+SSL_R_STREAM_SEND_ONLY:379:stream send only
 SSL_R_TLSV13_ALERT_CERTIFICATE_REQUIRED:1116:tlsv13 alert certificate required
 SSL_R_TLSV13_ALERT_MISSING_EXTENSION:1109:tlsv13 alert missing extension
 SSL_R_TLSV1_ALERT_ACCESS_DENIED:1049:tlsv1 alert access denied
@@ -1761,7 +1769,7 @@ X509_R_AKID_MISMATCH:110:akid mismatch
 X509_R_BAD_SELECTOR:133:bad selector
 X509_R_BAD_X509_FILETYPE:100:bad x509 filetype
 X509_R_BASE64_DECODE_ERROR:118:base64 decode error
-X509_R_CANT_CHECK_DH_KEY:114:cant check dh key
+X509_R_CANT_CHECK_DH_KEY:114:can't check dh key
 X509_R_CERTIFICATE_VERIFICATION_FAILED:139:certificate verification failed
 X509_R_CERT_ALREADY_IN_HASH_TABLE:101:cert already in hash table
 X509_R_CRL_ALREADY_DELTA:127:crl already delta

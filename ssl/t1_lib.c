@@ -24,6 +24,7 @@
 #include "internal/sizes.h"
 #include "internal/tlsgroups.h"
 #include "ssl_local.h"
+#include "quic/quic_local.h"
 #include <openssl/ct.h>
 
 static const SIGALG_LOOKUP *find_sig_alg(SSL_CONNECTION *s, X509 *x, EVP_PKEY *pkey);
@@ -923,6 +924,7 @@ uint16_t tls1_shared_group(SSL_CONNECTION *s, int nmatch)
     const uint16_t *pref, *supp;
     size_t num_pref, num_supp, i;
     int k;
+    SSL_CTX *ctx = SSL_CONNECTION_GET_CTX(s);
 
     /* Can't do anything on client side */
     if (s->server == 0)
@@ -959,10 +961,29 @@ uint16_t tls1_shared_group(SSL_CONNECTION *s, int nmatch)
 
     for (k = 0, i = 0; i < num_pref; i++) {
         uint16_t id = pref[i];
+        const TLS_GROUP_INFO *inf;
 
         if (!tls1_in_list(id, supp, num_supp)
                 || !tls_group_allowed(s, id, SSL_SECOP_CURVE_SHARED))
             continue;
+        inf = tls1_group_id_lookup(ctx, id);
+        if (!ossl_assert(inf != NULL))
+            return 0;
+        if (SSL_CONNECTION_IS_DTLS(s)) {
+            if (inf->maxdtls == -1)
+                continue;
+            if ((inf->mindtls != 0 && DTLS_VERSION_LT(s->version, inf->mindtls))
+                    || (inf->maxdtls != 0
+                        && DTLS_VERSION_GT(s->version, inf->maxdtls)))
+                continue;
+        } else {
+            if (inf->maxtls == -1)
+                continue;
+            if ((inf->mintls != 0 && s->version < inf->mintls)
+                    || (inf->maxtls != 0 && s->version > inf->maxtls))
+                continue;
+        }
+
         if (nmatch == k)
             return id;
          k++;
@@ -2044,6 +2065,18 @@ int ssl_cipher_disabled(const SSL_CONNECTION *s, const SSL_CIPHER *c,
         return 1;
     if (s->s3.tmp.max_ver == 0)
         return 1;
+
+    if (SSL_IS_QUIC_HANDSHAKE(s))
+        /* For QUIC, only allow these ciphersuites. */
+        switch (SSL_CIPHER_get_id(c)) {
+        case TLS1_3_CK_AES_128_GCM_SHA256:
+        case TLS1_3_CK_AES_256_GCM_SHA384:
+        case TLS1_3_CK_CHACHA20_POLY1305_SHA256:
+            break;
+        default:
+            return 1;
+        }
+
     if (!SSL_CONNECTION_IS_DTLS(s)) {
         int min_tls = c->min_tls;
 
@@ -3833,7 +3866,8 @@ int SSL_set_tlsext_max_fragment_length(SSL *ssl, uint8_t mode)
 {
     SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL(ssl);
 
-    if (sc == NULL)
+    if (sc == NULL
+        || (IS_QUIC(ssl) && mode != TLSEXT_max_fragment_length_DISABLED))
         return 0;
 
     if (mode != TLSEXT_max_fragment_length_DISABLED

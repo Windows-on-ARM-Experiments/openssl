@@ -38,6 +38,23 @@ void ossl_ackm_set_ack_deadline_callback(OSSL_ACKM *ackm,
                                                     void *arg),
                                          void *arg);
 
+/*
+ * Configures the RX-side maximum ACK delay. This is the maximum amount of time
+ * the peer is allowed to delay sending an ACK frame after receiving an
+ * ACK-eliciting packet. The peer communicates this value via a transport
+ * parameter and it must be provided to the ACKM.
+ */
+void ossl_ackm_set_rx_max_ack_delay(OSSL_ACKM *ackm, OSSL_TIME rx_max_ack_delay);
+
+/*
+ * Configures the TX-side maximum ACK delay. This is the maximum amount of time
+ * we are allowed to delay sending an ACK frame after receiving an ACK-eliciting
+ * packet. Note that this cannot be changed after a connection is established as
+ * it must be accurately reported in the transport parameters we send to our
+ * peer.
+ */
+void ossl_ackm_set_tx_max_ack_delay(OSSL_ACKM *ackm, OSSL_TIME tx_max_ack_delay);
+
 typedef struct ossl_ackm_tx_pkt_st OSSL_ACKM_TX_PKT;
 struct ossl_ackm_tx_pkt_st {
     /* The packet number of the transmitted packet. */
@@ -67,10 +84,19 @@ struct ossl_ackm_tx_pkt_st {
      */
     unsigned int pkt_space :2;
 
-    /* 1 if the packet is in flight. */
+    /*
+     * 1 if the packet is in flight. A packet is considered 'in flight' if it is
+     * counted for purposes of congestion control and 'bytes in flight' counts.
+     * Most packets are considered in flight. The only circumstance where a
+     * numbered packet is not considered in flight is if it contains only ACK
+     * frames (not even PADDING frames), as these frames can bypass CC.
+     */
     unsigned int is_inflight :1;
 
-    /* 1 if the packet has one or more ACK-eliciting frames. */
+    /*
+     * 1 if the packet has one or more ACK-eliciting frames.
+     * Note that if this is set, is_inflight must be set.
+     */
     unsigned int is_ack_eliciting :1;
 
     /* 1 if the packet is a PTO probe. */
@@ -262,6 +288,9 @@ int ossl_ackm_mark_packet_pseudo_lost(OSSL_ACKM *ackm,
  * This duration is used in various parts of QUIC besides the ACKM.
  */
 OSSL_TIME ossl_ackm_get_pto_duration(OSSL_ACKM *ackm);
+
+/* Returns the largest acked PN in the given PN space. */
+QUIC_PN ossl_ackm_get_largest_acked(OSSL_ACKM *ackm, int pkt_space);
 
 # endif
 

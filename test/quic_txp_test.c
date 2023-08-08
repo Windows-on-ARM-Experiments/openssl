@@ -245,6 +245,7 @@ err:
 #define OPK_CONN_TXFC_BUMP          20  /* Bump connection TXFC CWM */
 #define OPK_STREAM_TXFC_BUMP        21  /* Bump stream TXFC CWM */
 #define OPK_HANDSHAKE_COMPLETE      22  /* Mark handshake as complete */
+#define OPK_NOP                     23  /* No-op */
 
 struct script_op {
     uint32_t opcode;
@@ -256,10 +257,10 @@ struct script_op {
 
 #define OP_END      \
     { OPK_END }
-#define OP_TXP_GENERATE(archetype) \
-    { OPK_TXP_GENERATE, (archetype) },
-#define OP_TXP_GENERATE_NONE(archetype) \
-    { OPK_TXP_GENERATE_NONE, (archetype) },
+#define OP_TXP_GENERATE() \
+    { OPK_TXP_GENERATE },
+#define OP_TXP_GENERATE_NONE() \
+    { OPK_TXP_GENERATE_NONE },
 #define OP_RX_PKT() \
     { OPK_RX_PKT },
 #define OP_RX_PKT_NONE() \
@@ -300,6 +301,8 @@ struct script_op {
     { OPK_STREAM_TXFC_BUMP, (cwm), (id) },
 #define OP_HANDSHAKE_COMPLETE() \
     { OPK_HANDSHAKE_COMPLETE },
+#define OP_NOP() \
+    { OPK_NOP },
 
 static int schedule_handshake_done(struct helper *h)
 {
@@ -316,9 +319,9 @@ static int schedule_ack_eliciting_app(struct helper *h)
 /* 1. 1-RTT, Single Handshake Done Frame */
 static const struct script_op script_1[] = {
     OP_PROVIDE_SECRET(QUIC_ENC_LEVEL_1RTT, QRL_SUITE_AES128GCM, secret_1)
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_CHECK(schedule_handshake_done)
-    OP_TXP_GENERATE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE()
     OP_RX_PKT()
     /* Should not be long */
     OP_EXPECT_DGRAM_LEN(21, 32)
@@ -326,16 +329,16 @@ static const struct script_op script_1[] = {
     OP_EXPECT_FRAME(OSSL_QUIC_FRAME_TYPE_HANDSHAKE_DONE)
     OP_EXPECT_NO_FRAME()
     OP_RX_PKT_NONE()
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_END
 };
 
 /* 2. 1-RTT, Forced ACK-Eliciting Frame */
 static const struct script_op script_2[] = {
     OP_PROVIDE_SECRET(QUIC_ENC_LEVEL_1RTT, QRL_SUITE_AES128GCM, secret_1)
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_CHECK(schedule_ack_eliciting_app)
-    OP_TXP_GENERATE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE()
     OP_RX_PKT()
     /* Should not be long */
     OP_EXPECT_DGRAM_LEN(21, 32)
@@ -344,7 +347,7 @@ static const struct script_op script_2[] = {
     OP_EXPECT_FRAME(OSSL_QUIC_FRAME_TYPE_PING)
     OP_EXPECT_NO_FRAME()
     OP_RX_PKT_NONE()
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_END
 };
 
@@ -365,9 +368,9 @@ static int schedule_max_data(struct helper *h)
 
 static const struct script_op script_3[] = {
     OP_PROVIDE_SECRET(QUIC_ENC_LEVEL_1RTT, QRL_SUITE_AES128GCM, secret_1)
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_CHECK(schedule_max_data)
-    OP_TXP_GENERATE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE()
     OP_RX_PKT()
     /* Should not be long */
     OP_EXPECT_DGRAM_LEN(21, 40)
@@ -376,7 +379,7 @@ static const struct script_op script_3[] = {
     OP_EXPECT_FRAME(OSSL_QUIC_FRAME_TYPE_MAX_DATA)
     OP_EXPECT_NO_FRAME()
     OP_RX_PKT_NONE()
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_END
 };
 
@@ -418,7 +421,7 @@ static int schedule_cfq_new_conn_id(struct helper *h)
 
     if (!TEST_ptr(cfq_item = ossl_quic_cfq_add_frame(h->args.cfq, 1,
                                                      QUIC_PN_SPACE_APP,
-                                                     OSSL_QUIC_FRAME_TYPE_NEW_CONN_ID,
+                                                     OSSL_QUIC_FRAME_TYPE_NEW_CONN_ID, 0,
                                                      (unsigned char *)buf_mem->data, l,
                                                      free_buf_mem,
                                                      buf_mem)))
@@ -448,9 +451,9 @@ static int check_cfq_new_conn_id(struct helper *h)
 
 static const struct script_op script_4[] = {
     OP_PROVIDE_SECRET(QUIC_ENC_LEVEL_1RTT, QRL_SUITE_AES128GCM, secret_1)
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_CHECK(schedule_cfq_new_conn_id)
-    OP_TXP_GENERATE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE()
     OP_RX_PKT()
     OP_EXPECT_DGRAM_LEN(21, 128)
     OP_NEXT_FRAME()
@@ -458,7 +461,7 @@ static const struct script_op script_4[] = {
     OP_CHECK(check_cfq_new_conn_id)
     OP_EXPECT_NO_FRAME()
     OP_RX_PKT_NONE()
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_END
 };
 
@@ -494,7 +497,7 @@ static int schedule_cfq_new_token(struct helper *h)
 
     if (!TEST_ptr(cfq_item = ossl_quic_cfq_add_frame(h->args.cfq, 1,
                                                      QUIC_PN_SPACE_APP,
-                                                     OSSL_QUIC_FRAME_TYPE_NEW_TOKEN,
+                                                     OSSL_QUIC_FRAME_TYPE_NEW_TOKEN, 0,
                                                      (unsigned char *)buf_mem->data, l,
                                                      free_buf_mem,
                                                      buf_mem)))
@@ -520,9 +523,9 @@ static int check_cfq_new_token(struct helper *h)
 
 static const struct script_op script_5[] = {
     OP_PROVIDE_SECRET(QUIC_ENC_LEVEL_1RTT, QRL_SUITE_AES128GCM, secret_1)
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_CHECK(schedule_cfq_new_token)
-    OP_TXP_GENERATE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE()
     OP_RX_PKT()
     OP_EXPECT_DGRAM_LEN(21, 512)
     OP_NEXT_FRAME()
@@ -530,7 +533,7 @@ static const struct script_op script_5[] = {
     OP_CHECK(check_cfq_new_token)
     OP_EXPECT_NO_FRAME()
     OP_RX_PKT_NONE()
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_END
 };
 
@@ -556,26 +559,26 @@ static int schedule_ack(struct helper *h)
 
 static const struct script_op script_6[] = {
     OP_PROVIDE_SECRET(QUIC_ENC_LEVEL_1RTT, QRL_SUITE_AES128GCM, secret_1)
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_CHECK(schedule_ack)
-    OP_TXP_GENERATE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE()
     OP_RX_PKT()
     OP_EXPECT_DGRAM_LEN(21, 512)
     OP_NEXT_FRAME()
     OP_EXPECT_FRAME(OSSL_QUIC_FRAME_TYPE_ACK_WITHOUT_ECN)
     OP_EXPECT_NO_FRAME()
     OP_RX_PKT_NONE()
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_END
 };
 
 /* 7. 1-RTT, ACK, NEW_TOKEN */
 static const struct script_op script_7[] = {
     OP_PROVIDE_SECRET(QUIC_ENC_LEVEL_1RTT, QRL_SUITE_AES128GCM, secret_1)
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_CHECK(schedule_cfq_new_token)
     OP_CHECK(schedule_ack)
-    OP_TXP_GENERATE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE()
     OP_RX_PKT()
     OP_EXPECT_DGRAM_LEN(21, 512)
     /* ACK must come before NEW_TOKEN */
@@ -585,7 +588,7 @@ static const struct script_op script_7[] = {
     OP_EXPECT_FRAME(OSSL_QUIC_FRAME_TYPE_NEW_TOKEN)
     OP_EXPECT_NO_FRAME()
     OP_RX_PKT_NONE()
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_END
 };
 
@@ -596,16 +599,16 @@ static const unsigned char crypto_1[] = {
 
 static const struct script_op script_8[] = {
     OP_PROVIDE_SECRET(QUIC_ENC_LEVEL_1RTT, QRL_SUITE_AES128GCM, secret_1)
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_CRYPTO_SEND(QUIC_PN_SPACE_APP, crypto_1)
-    OP_TXP_GENERATE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE()
     OP_RX_PKT()
     OP_EXPECT_DGRAM_LEN(21, 512)
     OP_NEXT_FRAME()
     OP_EXPECT_FRAME(OSSL_QUIC_FRAME_TYPE_CRYPTO)
     OP_EXPECT_NO_FRAME()
     OP_RX_PKT_NONE()
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_END
 };
 
@@ -626,15 +629,15 @@ static int check_stream_9(struct helper *h)
 static const struct script_op script_9[] = {
     OP_PROVIDE_SECRET(QUIC_ENC_LEVEL_1RTT, QRL_SUITE_AES128GCM, secret_1)
     OP_HANDSHAKE_COMPLETE()
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_STREAM_NEW(42)
     OP_STREAM_SEND(42, stream_9)
     /* Still no output because of TXFC */
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     /* Now grant a TXFC budget */
     OP_CONN_TXFC_BUMP(1000)
     OP_STREAM_TXFC_BUMP(42, 1000)
-    OP_TXP_GENERATE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE()
     OP_RX_PKT()
     OP_EXPECT_DGRAM_LEN(21, 512)
     OP_NEXT_FRAME()
@@ -642,7 +645,7 @@ static const struct script_op script_9[] = {
     OP_CHECK(check_stream_9)
     OP_EXPECT_NO_FRAME()
     OP_RX_PKT_NONE()
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_END
 };
 
@@ -935,7 +938,7 @@ static int check_stream_10d(struct helper *h)
 static const struct script_op script_10[] = {
     OP_PROVIDE_SECRET(QUIC_ENC_LEVEL_1RTT, QRL_SUITE_AES128GCM, secret_1)
     OP_HANDSHAKE_COMPLETE()
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_STREAM_NEW(42)
     OP_STREAM_NEW(43)
     OP_CONN_TXFC_BUMP(10000)
@@ -945,7 +948,7 @@ static const struct script_op script_10[] = {
     OP_STREAM_SEND(43, stream_10b)
 
     /* First packet containing data from stream 42 */
-    OP_TXP_GENERATE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE()
     OP_RX_PKT()
     OP_EXPECT_DGRAM_LEN(1100, 1200)
     OP_NEXT_FRAME()
@@ -954,7 +957,7 @@ static const struct script_op script_10[] = {
     OP_EXPECT_NO_FRAME()
 
     /* Second packet containing data from stream 43 */
-    OP_TXP_GENERATE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE()
     OP_RX_PKT()
     OP_EXPECT_DGRAM_LEN(1100, 1200)
     OP_NEXT_FRAME()
@@ -963,7 +966,7 @@ static const struct script_op script_10[] = {
     OP_EXPECT_NO_FRAME()
 
     /* Third packet containing data from stream 42 */
-    OP_TXP_GENERATE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE()
     OP_RX_PKT()
     OP_EXPECT_DGRAM_LEN(200, 500)
     OP_NEXT_FRAME()
@@ -975,7 +978,7 @@ static const struct script_op script_10[] = {
     OP_EXPECT_NO_FRAME()
 
     OP_RX_PKT_NONE()
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
 
     OP_END
 };
@@ -983,16 +986,16 @@ static const struct script_op script_10[] = {
 /* 11. Initial, CRYPTO */
 static const struct script_op script_11[] = {
     OP_PROVIDE_SECRET(QUIC_ENC_LEVEL_INITIAL, QRL_SUITE_AES128GCM, secret_1)
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_CRYPTO_SEND(QUIC_PN_SPACE_INITIAL, crypto_1)
-    OP_TXP_GENERATE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE()
     OP_RX_PKT()
     OP_EXPECT_DGRAM_LEN(1200, 1200)
     OP_NEXT_FRAME()
     OP_EXPECT_FRAME(OSSL_QUIC_FRAME_TYPE_CRYPTO)
     OP_EXPECT_NO_FRAME()
     OP_RX_PKT_NONE()
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_END
 };
 
@@ -1009,10 +1012,10 @@ static int check_stream_12(struct helper *h)
 static const struct script_op script_12[] = {
     OP_PROVIDE_SECRET(QUIC_ENC_LEVEL_1RTT, QRL_SUITE_AES128GCM, secret_1)
     OP_HANDSHAKE_COMPLETE()
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_STREAM_NEW(42)
     OP_STOP_SENDING(42, 4568)
-    OP_TXP_GENERATE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE()
     OP_RX_PKT()
     OP_EXPECT_DGRAM_LEN(21, 128)
     OP_NEXT_FRAME()
@@ -1020,7 +1023,7 @@ static const struct script_op script_12[] = {
     OP_CHECK(check_stream_12)
     OP_EXPECT_NO_FRAME()
     OP_RX_PKT_NONE()
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_END
 };
 
@@ -1033,7 +1036,7 @@ static ossl_unused int check_stream_13(struct helper *h)
 {
     if (!TEST_uint64_t_eq(h->frame.reset_stream.stream_id, 42)
         || !TEST_uint64_t_eq(h->frame.reset_stream.app_error_code, 4568)
-        || !TEST_uint64_t_eq(h->frame.reset_stream.final_size, 8))
+        || !TEST_uint64_t_eq(h->frame.reset_stream.final_size, 0))
         return 0;
 
     return 1;
@@ -1042,23 +1045,22 @@ static ossl_unused int check_stream_13(struct helper *h)
 static const struct script_op script_13[] = {
     OP_PROVIDE_SECRET(QUIC_ENC_LEVEL_1RTT, QRL_SUITE_AES128GCM, secret_1)
     OP_HANDSHAKE_COMPLETE()
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_STREAM_NEW(42)
     OP_CONN_TXFC_BUMP(8)
     OP_STREAM_TXFC_BUMP(42, 8)
     OP_STREAM_SEND(42, stream_13)
     OP_RESET_STREAM(42, 4568)
-    OP_TXP_GENERATE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE()
     OP_RX_PKT()
     OP_EXPECT_DGRAM_LEN(21, 128)
     OP_NEXT_FRAME()
     OP_EXPECT_FRAME(OSSL_QUIC_FRAME_TYPE_RESET_STREAM)
     OP_CHECK(check_stream_13)
     OP_NEXT_FRAME()
-    OP_EXPECT_FRAME(OSSL_QUIC_FRAME_TYPE_STREAM)
     OP_EXPECT_NO_FRAME()
     OP_RX_PKT_NONE()
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_END
 };
 
@@ -1094,9 +1096,9 @@ static int check_14(struct helper *h)
 static const struct script_op script_14[] = {
     OP_PROVIDE_SECRET(QUIC_ENC_LEVEL_1RTT, QRL_SUITE_AES128GCM, secret_1)
     OP_HANDSHAKE_COMPLETE()
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_CHECK(gen_conn_close)
-    OP_TXP_GENERATE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE()
     OP_RX_PKT()
     OP_EXPECT_DGRAM_LEN(21, 512)
     OP_NEXT_FRAME()
@@ -1122,16 +1124,16 @@ static int gen_probe_initial(struct helper *h)
 
 static const struct script_op script_15[] = {
     OP_PROVIDE_SECRET(QUIC_ENC_LEVEL_INITIAL, QRL_SUITE_AES128GCM, secret_1)
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_CHECK(gen_probe_initial)
-    OP_TXP_GENERATE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE()
     OP_RX_PKT()
     OP_EXPECT_DGRAM_LEN(1200, 1200)
     OP_NEXT_FRAME()
     OP_EXPECT_FRAME(OSSL_QUIC_FRAME_TYPE_PING)
     OP_EXPECT_NO_FRAME()
     OP_RX_PKT_NONE()
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_END
 };
 
@@ -1151,16 +1153,16 @@ static int gen_probe_handshake(struct helper *h)
 static const struct script_op script_16[] = {
     OP_DISCARD_EL(QUIC_ENC_LEVEL_INITIAL)
     OP_PROVIDE_SECRET(QUIC_ENC_LEVEL_HANDSHAKE, QRL_SUITE_AES128GCM, secret_1)
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_CHECK(gen_probe_handshake)
-    OP_TXP_GENERATE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE()
     OP_RX_PKT()
     OP_EXPECT_DGRAM_LEN(21, 512)
     OP_NEXT_FRAME()
     OP_EXPECT_FRAME(OSSL_QUIC_FRAME_TYPE_PING)
     OP_EXPECT_NO_FRAME()
     OP_RX_PKT_NONE()
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_END
 };
 
@@ -1181,16 +1183,16 @@ static const struct script_op script_17[] = {
     OP_DISCARD_EL(QUIC_ENC_LEVEL_INITIAL)
     OP_DISCARD_EL(QUIC_ENC_LEVEL_HANDSHAKE)
     OP_PROVIDE_SECRET(QUIC_ENC_LEVEL_1RTT, QRL_SUITE_AES128GCM, secret_1)
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_CHECK(gen_probe_1rtt)
-    OP_TXP_GENERATE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE()
     OP_RX_PKT()
     OP_EXPECT_DGRAM_LEN(21, 512)
     OP_NEXT_FRAME()
     OP_EXPECT_FRAME(OSSL_QUIC_FRAME_TYPE_PING)
     OP_EXPECT_NO_FRAME()
     OP_RX_PKT_NONE()
-    OP_TXP_GENERATE_NONE(TX_PACKETISER_ARCHETYPE_NORMAL)
+    OP_TXP_GENERATE_NONE()
     OP_END
 };
 
@@ -1218,28 +1220,29 @@ static void skip_padding(struct helper *h)
 {
     uint64_t frame_type;
 
-    if (!ossl_quic_wire_peek_frame_header(&h->pkt, &frame_type))
+    if (!ossl_quic_wire_peek_frame_header(&h->pkt, &frame_type, NULL))
         return; /* EOF */
 
     if (frame_type == OSSL_QUIC_FRAME_TYPE_PADDING)
         ossl_quic_wire_decode_padding(&h->pkt);
 }
 
-static int run_script(const struct script_op *script)
+static int run_script(int script_idx, const struct script_op *script)
 {
-    int testresult = 0, have_helper = 0, sent_ack_eliciting = 0;
+    int testresult = 0, have_helper = 0;
+    QUIC_TXP_STATUS status;
     struct helper h;
     const struct script_op *op;
+    size_t opn = 0;
 
     if (!helper_init(&h))
         goto err;
 
     have_helper = 1;
-    for (op = script; op->opcode != OPK_END; ++op) {
+    for (op = script, opn = 0; op->opcode != OPK_END; ++op, ++opn) {
         switch (op->opcode) {
         case OPK_TXP_GENERATE:
-            if (!TEST_int_eq(ossl_quic_tx_packetiser_generate(h.txp, (int)op->arg0,
-                                                              &sent_ack_eliciting),
+            if (!TEST_int_eq(ossl_quic_tx_packetiser_generate(h.txp, &status),
                              TX_PACKETISER_RES_SENT_PKT))
                 goto err;
 
@@ -1247,8 +1250,7 @@ static int run_script(const struct script_op *script)
             ossl_qtx_flush_net(h.args.qtx);
             break;
         case OPK_TXP_GENERATE_NONE:
-            if (!TEST_int_eq(ossl_quic_tx_packetiser_generate(h.txp, (int)op->arg0,
-                                                              &sent_ack_eliciting),
+            if (!TEST_int_eq(ossl_quic_tx_packetiser_generate(h.txp, &status),
                              TX_PACKETISER_RES_NO_PKT))
                 goto err;
 
@@ -1296,7 +1298,7 @@ static int run_script(const struct script_op *script)
             break;
         case OPK_NEXT_FRAME:
             skip_padding(&h);
-            if (!ossl_quic_wire_peek_frame_header(&h.pkt, &h.frame_type)) {
+            if (!ossl_quic_wire_peek_frame_header(&h.pkt, &h.frame_type, NULL)) {
                 h.frame_type = UINT64_MAX;
                 break;
             }
@@ -1430,7 +1432,9 @@ static int run_script(const struct script_op *script)
                     || !TEST_true(ossl_quic_rxfc_init(&s->rxfc, &h.conn_rxfc,
                                                       1 * 1024 * 1024,
                                                       16 * 1024 * 1024,
-                                                      fake_now, NULL))) {
+                                                      fake_now, NULL))
+                    || !TEST_ptr(s->rstream = ossl_quic_rstream_new(&s->rxfc,
+                                                                    NULL, 1024))) {
                     ossl_quic_sstream_free(s->sstream);
                     ossl_quic_stream_map_release(h.args.qsm, s);
                     goto err;
@@ -1525,6 +1529,8 @@ static int run_script(const struct script_op *script)
         case OPK_HANDSHAKE_COMPLETE:
             ossl_quic_tx_packetiser_notify_handshake_complete(h.txp);
             break;
+        case OPK_NOP:
+            break;
         default:
             TEST_error("bad opcode");
             goto err;
@@ -1533,6 +1539,8 @@ static int run_script(const struct script_op *script)
 
     testresult = 1;
 err:
+    if (!testresult)
+        TEST_error("script %d failed at op %zu", script_idx + 1, opn + 1);
     if (have_helper)
         helper_cleanup(&h);
     return testresult;
@@ -1540,11 +1548,96 @@ err:
 
 static int test_script(int idx)
 {
-    return run_script(scripts[idx]);
+    if (idx + 1 != 18) return 1;
+    return run_script(idx, scripts[idx]);
+}
+
+/*
+ * Dynamic Script 1.
+ *
+ * This script exists to test the interactions between multiple packets (ELs) in
+ * the same datagram when there is a padding requirement (due to the datagram
+ * containing an Initial packet). There are boundary cases which are difficult
+ * to get right so it is important to test this entire space. Examples of such
+ * edge cases include:
+ *
+ * - If we are planning on generating both an Initial and Handshake packet in a
+ *   datagram ordinarily we would plan on adding the padding frames to meet the
+ *   mandatory minimum size to the last packet in the datagram (i.e., the
+ *   Handshake packet). But if the amount of room remaining in a datagram is
+ *   e.g. only 3 bytes after generating the Initial packet, this is not
+ *   enough room for another packet and we have a problem as having finished
+ *   the Initial packet we have no way to add the necessary padding.
+ *
+ * - If we do have room for another packet but it is not enough room to encode
+ *   any desired frame.
+ *
+ * This test confirms we handle these cases correctly for multi-packet datagrams
+ * by placing two packets in a datagram and varying the size of the first
+ * datagram.
+ */
+static const unsigned char dyn_script_1_crypto_1a[1200];
+static const unsigned char dyn_script_1_crypto_1b[1];
+
+static int check_is_initial(struct helper *h)
+{
+    return h->qrx_pkt->hdr->type == QUIC_PKT_TYPE_INITIAL;
+}
+
+static int check_is_handshake(struct helper *h)
+{
+    return h->qrx_pkt->hdr->type == QUIC_PKT_TYPE_HANDSHAKE;
+}
+
+static struct script_op dyn_script_1[] = {
+    OP_PROVIDE_SECRET(QUIC_ENC_LEVEL_INITIAL, QRL_SUITE_AES128GCM, secret_1)
+    OP_PROVIDE_SECRET(QUIC_ENC_LEVEL_HANDSHAKE, QRL_SUITE_AES128GCM, secret_1)
+    OP_TXP_GENERATE_NONE()
+    OP_CRYPTO_SEND(QUIC_PN_SPACE_INITIAL, dyn_script_1_crypto_1a) /* [crypto_idx] */
+    OP_CRYPTO_SEND(QUIC_PN_SPACE_HANDSHAKE, dyn_script_1_crypto_1b)
+    OP_TXP_GENERATE()
+    OP_RX_PKT()
+    OP_EXPECT_DGRAM_LEN(1200, 1200)
+    OP_CHECK(check_is_initial)
+    OP_NOP() /* [pkt_idx] */
+    OP_NOP() /* [check_idx] */
+    OP_END
+};
+
+static const size_t dyn_script_1_crypto_idx     = 3;
+static const size_t dyn_script_1_pkt_idx        = 9;
+static const size_t dyn_script_1_check_idx      = 10;
+static const size_t dyn_script_1_start_from     = 1000;
+
+static int test_dyn_script_1(int idx)
+{
+    size_t target_size = dyn_script_1_start_from + (size_t)idx;
+    int expect_handshake_pkt_in_same_dgram = (target_size <= 1115);
+
+    dyn_script_1[dyn_script_1_crypto_idx].buf_len = target_size;
+
+    if (expect_handshake_pkt_in_same_dgram) {
+        dyn_script_1[dyn_script_1_pkt_idx].opcode       = OPK_RX_PKT;
+        dyn_script_1[dyn_script_1_check_idx].opcode     = OPK_CHECK;
+        dyn_script_1[dyn_script_1_check_idx].check_func = check_is_handshake;
+    } else {
+        dyn_script_1[dyn_script_1_pkt_idx].opcode       = OPK_RX_PKT_NONE;
+        dyn_script_1[dyn_script_1_check_idx].opcode     = OPK_NOP;
+    }
+
+    if (!run_script(idx, dyn_script_1)) {
+        TEST_error("failed dyn script 1 with target size %zu", target_size);
+        return 0;
+    }
+
+    return 1;
 }
 
 int setup_tests(void)
 {
     ADD_ALL_TESTS(test_script, OSSL_NELEM(scripts));
+    ADD_ALL_TESTS(test_dyn_script_1,
+                  OSSL_NELEM(dyn_script_1_crypto_1a)
+                  - dyn_script_1_start_from + 1);
     return 1;
 }

@@ -281,6 +281,37 @@ void ossl_decoder_instance_free(OSSL_DECODER_INSTANCE *decoder_inst)
     }
 }
 
+OSSL_DECODER_INSTANCE *ossl_decoder_instance_dup(const OSSL_DECODER_INSTANCE *src)
+{
+    OSSL_DECODER_INSTANCE *dest;
+    const OSSL_PROVIDER *prov;
+    void *provctx;
+
+    if ((dest = OPENSSL_zalloc(sizeof(*dest))) == NULL)
+        return NULL;
+
+    *dest = *src;
+    if (!OSSL_DECODER_up_ref(dest->decoder)) {
+        ERR_raise(ERR_LIB_OSSL_DECODER, ERR_R_INTERNAL_ERROR);
+        goto err;
+    }
+    prov = OSSL_DECODER_get0_provider(dest->decoder);
+    provctx = OSSL_PROVIDER_get0_provider_ctx(prov);
+
+    dest->decoderctx = dest->decoder->newctx(provctx);
+    if (dest->decoderctx == NULL) {
+        ERR_raise(ERR_LIB_OSSL_DECODER, ERR_R_INTERNAL_ERROR);
+        OSSL_DECODER_free(dest->decoder);
+        goto err;
+    }
+
+    return dest;
+
+ err:
+    OPENSSL_free(dest);
+    return NULL;
+}
+
 int ossl_decoder_ctx_add_decoder_inst(OSSL_DECODER_CTX *ctx,
                                       OSSL_DECODER_INSTANCE *di)
 {
@@ -748,10 +779,11 @@ static int decoder_process(const OSSL_PARAM params[], void *arg)
                            (void *)new_data.ctx, LEVEL, rv);
             } OSSL_TRACE_END(DECODER);
 
-            data->flag_construct_called = 1;
             ok = (rv > 0);
-            if (ok)
+            if (ok) {
+                data->flag_construct_called = 1;
                 goto end;
+            }
         }
 
         /* The constructor didn't return success */

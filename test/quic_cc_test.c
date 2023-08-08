@@ -444,8 +444,10 @@ static int test_simulate(void)
 
         double error = ((double)estimated_capacity / (double)actual_capacity) - 1.0;
 
-        TEST_info("est = %6lu kB/s, act=%6lu kB/s (error=%.02f%%)\n",
-                  estimated_capacity, actual_capacity, error * 100.0);
+        TEST_info("est = %6llu kB/s, act=%6llu kB/s (error=%.02f%%)\n",
+                  (unsigned long long)estimated_capacity,
+                  (unsigned long long)actual_capacity,
+                  error * 100.0);
 
         /* Max 5% error */
         if (!TEST_double_le(error, 0.05))
@@ -515,11 +517,8 @@ static int test_sanity(void)
     if (!TEST_uint64_t_ge(allowance = ccm->get_tx_allowance(cc), 1472))
         goto err;
 
-    /*
-     * No wakeups should be scheduled currently as we don't currently implement
-     * pacing.
-     */
-    if (!TEST_true(ossl_time_is_infinite(ccm->get_wakeup_deadline(cc))))
+    /* There is TX allowance so wakeup should be immediate */
+    if (!TEST_true(ossl_time_is_zero(ccm->get_wakeup_deadline(cc))))
         goto err;
 
     /* No bytes should currently be in flight. */

@@ -43,6 +43,7 @@ OSSL_CMP_CTX_set1_extraCertsOut,
 OSSL_CMP_CTX_set0_newPkey,
 OSSL_CMP_CTX_get0_newPkey,
 OSSL_CMP_CTX_set1_issuer,
+OSSL_CMP_CTX_set1_serialNumber,
 OSSL_CMP_CTX_set1_subjectName,
 OSSL_CMP_CTX_push1_subjectAltName,
 OSSL_CMP_CTX_set0_reqExtensions,
@@ -133,6 +134,7 @@ OSSL_CMP_CTX_set1_senderNonce
  int OSSL_CMP_CTX_set0_newPkey(OSSL_CMP_CTX *ctx, int priv, EVP_PKEY *pkey);
  EVP_PKEY *OSSL_CMP_CTX_get0_newPkey(const OSSL_CMP_CTX *ctx, int priv);
  int OSSL_CMP_CTX_set1_issuer(OSSL_CMP_CTX *ctx, const X509_NAME *name);
+ int OSSL_CMP_CTX_set1_serialNumber(OSSL_CMP_CTX *ctx, const ASN1_INTEGER *sn);
  int OSSL_CMP_CTX_set1_subjectName(OSSL_CMP_CTX *ctx, const X509_NAME *name);
  int OSSL_CMP_CTX_push1_subjectAltName(OSSL_CMP_CTX *ctx,
                                        const GENERAL_NAME *name);
@@ -191,7 +193,7 @@ clearing the internal CMP transaction (aka session) status, PKIStatusInfo,
 and any previous results (newCert, newChain, caPubs, and extraCertsIn)
 from the last executed transaction.
 It also clears any ITAVs that were added by OSSL_CMP_CTX_push0_genm_ITAV().
-All other field values (i.e., CMP options) are retained for potential re-use.
+All other field values (i.e., CMP options) are retained for potential reuse.
 
 OSSL_CMP_CTX_get0_libctx() returns the I<libctx> argument that was used
 when constructing I<ctx> with OSSL_CMP_CTX_new(), which may be NULL.
@@ -275,12 +277,12 @@ The following options can be set:
 
 =item B<OSSL_CMP_OPT_OWF_ALGNID>
         The NID of the digest algorithm to be used as one-way function (OWF)
-        in RFC 4210's MSG_MAC_ALG for PBM-based message protection.
+        for MAC-based message protection with password-based MAC (PBM).
+        See RFC 4210 section 5.1.3.1 for details.
         Default is SHA256.
 
 =item B<OSSL_CMP_OPT_MAC_ALGNID>
-        The NID of the MAC algorithm to be used in RFC 4210's MSG_MAC_ALG
-        for PBM-based message protection.
+        The NID of the MAC algorithm to be used for message protection with PBM.
         Default is HMAC-SHA1 as per RFC 4210.
 
 =item B<OSSL_CMP_OPT_REVOCATION_REASON>
@@ -467,8 +469,9 @@ The reference counts of those certificates handled successfully are increased.
 OSSL_CMP_CTX_get0_untrusted() returns a pointer to the
 list of untrusted certs in I<ctx>, which may be empty if unset.
 
-OSSL_CMP_CTX_set1_cert() sets the CMP signer certificate
-related to the private key used for CMP message protection.
+OSSL_CMP_CTX_set1_cert() sets the CMP I<signer certificate>,
+also called I<protection certificate>,
+related to the private key used for signature-based CMP message protection.
 Therefore the public key of this I<cert> must correspond to
 the private key set before or thereafter via OSSL_CMP_CTX_set1_pkey().
 When using signature-based protection of CMP request messages
@@ -499,15 +502,15 @@ OSSL_CMP_CTX_set1_pkey() sets the client's private key corresponding to the
 CMP signer certificate set via OSSL_CMP_CTX_set1_cert().
 This key is used create signature-based protection (protectionAlg = MSG_SIG_ALG)
 of outgoing messages
-unless a PBM secret has been set via OSSL_CMP_CTX_set1_secretValue().
+unless a symmetric secret has been set via OSSL_CMP_CTX_set1_secretValue().
 The I<pkey> argument may be NULL to clear the entry.
 
-OSSL_CMP_CTX_set1_secretValue() sets the byte string I<sec> with length I<len>
-as PBM secret in the given I<ctx> or clears it if the I<sec> argument is NULL.
-If present, this secret is used to create PBM-based protection of outgoing
-messages and to verify any PBM-based protection of incoming messages
-(protectionAlg = MSG_MAC_ALG). PBM stands for Password-Based MAC.
-PBM-based protection takes precedence over signature-based protection.
+OSSL_CMP_CTX_set1_secretValue() sets in I<ctx> the byte string I<sec> of length
+I<len> to use as pre-shared secret, or clears it if the I<sec> argument is NULL.
+If present, this secret is used to create MAC-based authentication and integrity
+protection (rather than applying signature-based protection)
+of outgoing messages and to verify authenticity and integrity of incoming
+messages that have MAC-based protection (protectionAlg = C<MSG_MAC_ALG>).
 
 OSSL_CMP_CTX_set1_referenceValue() sets the given referenceValue I<ref> with
 length I<len> in the given I<ctx> or clears it if the I<ref> argument is NULL.
@@ -518,7 +521,7 @@ then the sender field will contain the NULL-DN
 and the senderKID field of the CMP message header must be set.
 When signature-based protection is used the senderKID will be set to
 the subjectKeyIdentifier of the CMP signer certificate as far as present.
-If not present or when PBM-based protection is used
+If not present or when MAC-based protection is used
 the I<ref> value is taken as the fallback value for the senderKID.
 
 OSSL_CMP_CTX_set1_recipient() sets the recipient name that will be used in the
@@ -556,6 +559,9 @@ private component then NULL is returned.
 OSSL_CMP_CTX_set1_issuer() sets the name of the intended issuer that
 will be set in the CertTemplate, i.e., the X509 name of the CA server.
 
+OSSL_CMP_CTX_set1_serialNumber() sets the serial number optionally used to
+select the certificate to be revoked in Revocation Requests (RR).
+
 OSSL_CMP_CTX_set1_subjectName() sets the subject DN that will be used in
 the CertTemplate structure when requesting a new cert. For Key Update Requests
 (KUR), it defaults to the subject DN of the reference certificate,
@@ -588,17 +594,22 @@ to the X509_EXTENSIONS of the requested certificate template.
 
 OSSL_CMP_CTX_set1_oldCert() sets the old certificate to be updated in
 Key Update Requests (KUR) or to be revoked in Revocation Requests (RR).
-It must be given for RR, else it defaults to the CMP signer certificate.
-The I<reference certificate> determined in this way, if any, is also used for
-deriving default subject DN, public key, Subject Alternative Names, and the
-default issuer entry in the requested certificate template of IR/CR/KUR.
+For RR, this is ignored if an issuer name and a serial number are provided using
+OSSL_CMP_CTX_set1_issuer() and OSSL_CMP_CTX_set1_serialNumber(), respectively.
+For IR/CR/KUR this sets the I<reference certificate>,
+which otherwise defaults to the CMP signer certificate.
+The I<reference certificate> determined this way, if any, is used for providing
+default public key, subject DN, Subject Alternative Names, and issuer DN entries
+in the requested certificate template of IR/CR/KUR messages.
+
 The subject of the reference certificate is used as the sender field value
 in CMP message headers.
 Its issuer is used as default recipient in CMP message headers.
 
 OSSL_CMP_CTX_set1_p10CSR() sets the PKCS#10 CSR to use in P10CR messages.
-If such a CSR is provided, its subject, public key, and extension fields are
-also used as fallback values for the certificate template of IR/CR/KUR messages.
+If such a CSR is provided, its subject and public key fields are also
+used as fallback values for the certificate template of IR/CR/KUR/RR messages,
+and any extensions included are added to the template of IR/CR/KUR messages.
 
 OSSL_CMP_CTX_push0_genm_ITAV() adds I<itav> to the stack in the I<ctx> which
 will be the body of a General Message sent with this context.
@@ -758,7 +769,7 @@ Set up a CMP client context for sending requests and verifying responses:
     OSSL_CMP_CTX_set1_serverPath(cmp_ctx, path_or_alias);
     OSSL_CMP_CTX_set0_trusted(cmp_ctx, ts);
 
-Set up client credentials for password-based protection (PBM):
+Set up symmetric credentials for MAC-based message protection such as PBM:
 
     OSSL_CMP_CTX_set1_referenceValue(cmp_ctx, ref, ref_len);
     OSSL_CMP_CTX_set1_secretValue(cmp_ctx, sec, sec_len);
@@ -828,6 +839,8 @@ OSSL_CMP_CTX_reset_geninfo_ITAVs() was added in OpenSSL 3.0.8.
 
 OSSL_CMP_CTX_get0_libctx(), OSSL_CMP_CTX_get0_propq(), and
 OSSL_CMP_CTX_get0_validatedSrvCert() were added in OpenSSL 3.2.
+
+OSSL_CMP_CTX_set1_serialNumber() was added in OpenSSL 3.2.
 
 =head1 COPYRIGHT
 

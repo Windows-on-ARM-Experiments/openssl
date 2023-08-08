@@ -34,7 +34,7 @@ jobs:
             extra_config: enable-fips
           }, {
             branch: master,
-            extra_config: no-afalgeng enable-fips enable-tfo enable-quic
+            extra_config: no-afalgeng enable-fips enable-tfo
           }
         ]
     runs-on: ubuntu-latest
@@ -68,7 +68,7 @@ jobs:
     - name: generate coverage info
       run: lcov -d . -c -o ./lcov.info
     - name: Coveralls upload
-      uses: coverallsapp/github-action@v2.2.0
+      uses: coverallsapp/github-action@v2.2.1
       with:
         github-token: ${{ secrets.github_token }}
         git-branch: ${{ matrix.branches.branch }}

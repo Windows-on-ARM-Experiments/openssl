@@ -32,7 +32,7 @@ For this reason it's actually common for asynchronous I/O libraries to basically
 contain two separate implementations of their APIs internally, or at least a
 substantial chunk of their code (e.g. libuv, nanomsg). It turns out to be easier
 just to write a poll-based implementation of an I/O reactor and an IOCP-based
-implementation than try to overcome the impedence discontinuities.
+implementation than try to overcome the impedance discontinuities.
 
 The difference between polling and IOCPs is that polling reports *readiness*
 whereas IOCPs report *completion of an operation*. For example, in the IOCP
@@ -72,7 +72,7 @@ Evaluation of the existing demos and their applicability to Windows IOCP:
 
 Further, a cursory examination of code on GitHub seems to suggest that when
 people do use IOCP with libssl, they do it using memory BIOs passed to libssl.
-So ddd-05 and ddd-06 essentially demonstate this use case, especially ddd-06 as
+So ddd-05 and ddd-06 essentially demonstrate this use case, especially ddd-06 as
 it uses IOCP internally on Windows.
 
 My conclusion here is that since libssl does not support IOCP in the first

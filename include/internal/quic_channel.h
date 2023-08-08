@@ -211,11 +211,48 @@ int ossl_quic_channel_on_handshake_confirmed(QUIC_CHANNEL *ch);
  * reason string is not currently handled, but should be a string of static
  * storage duration. If the connection has already terminated due to a previous
  * protocol error, this is a no-op; first error wins.
+ *
+ * Usually the ossl_quic_channel_raise_protocol_error() function should be used.
+ * The ossl_quic_channel_raise_protocol_error_loc() function can be used
+ * directly for passing through existing call site information from an existing
+ * error.
  */
-void ossl_quic_channel_raise_protocol_error(QUIC_CHANNEL *ch,
-                                            uint64_t error_code,
-                                            uint64_t frame_type,
-                                            const char *reason);
+void ossl_quic_channel_raise_protocol_error_loc(QUIC_CHANNEL *ch,
+                                                uint64_t error_code,
+                                                uint64_t frame_type,
+                                                const char *reason,
+                                                ERR_STATE *err_state,
+                                                const char *src_file,
+                                                int src_line,
+                                                const char *src_func);
+
+#define ossl_quic_channel_raise_protocol_error(ch, error_code, frame_type, reason) \
+    ossl_quic_channel_raise_protocol_error_loc((ch), (error_code),  \
+                                               (frame_type),        \
+                                               (reason),            \
+                                               NULL,                \
+                                               OPENSSL_FILE,        \
+                                               OPENSSL_LINE,        \
+                                               OPENSSL_FUNC)
+
+#define ossl_quic_channel_raise_protocol_error_state(ch, error_code, frame_type, reason, state) \
+    ossl_quic_channel_raise_protocol_error_loc((ch), (error_code),  \
+                                               (frame_type),        \
+                                               (reason),            \
+                                               (state),             \
+                                               OPENSSL_FILE,        \
+                                               OPENSSL_LINE,        \
+                                               OPENSSL_FUNC)
+
+
+/*
+ * Returns 1 if permanent net error was detected on the QUIC_CHANNEL,
+ * 0 otherwise.
+ */
+int ossl_quic_channel_net_error(QUIC_CHANNEL *ch);
+
+/* Restore saved error state (best effort) */
+void ossl_quic_channel_restore_err_state(QUIC_CHANNEL *ch);
 
 /* For RXDP use. */
 void ossl_quic_channel_on_remote_conn_close(QUIC_CHANNEL *ch,
@@ -261,7 +298,6 @@ QUIC_STREAM *ossl_quic_channel_get_stream_by_id(QUIC_CHANNEL *ch,
 int ossl_quic_channel_is_term_any(const QUIC_CHANNEL *ch);
 const QUIC_TERMINATE_CAUSE *
 ossl_quic_channel_get_terminate_cause(const QUIC_CHANNEL *ch);
-int ossl_quic_channel_is_terminating(const QUIC_CHANNEL *ch);
 int ossl_quic_channel_is_terminated(const QUIC_CHANNEL *ch);
 int ossl_quic_channel_is_active(const QUIC_CHANNEL *ch);
 int ossl_quic_channel_is_handshake_complete(const QUIC_CHANNEL *ch);
@@ -329,6 +365,24 @@ void ossl_quic_channel_set_msg_callback(QUIC_CHANNEL *ch,
                                         SSL *msg_callback_ssl);
 void ossl_quic_channel_set_msg_callback_arg(QUIC_CHANNEL *ch,
                                             void *msg_callback_arg);
+
+/* Testing use only - sets a TXKU threshold packet count override value. */
+void ossl_quic_channel_set_txku_threshold_override(QUIC_CHANNEL *ch,
+                                                   uint64_t tx_pkt_threshold);
+
+/* Testing use only - gets current 1-RTT key epochs for QTX and QRX. */
+uint64_t ossl_quic_channel_get_tx_key_epoch(QUIC_CHANNEL *ch);
+uint64_t ossl_quic_channel_get_rx_key_epoch(QUIC_CHANNEL *ch);
+
+/* Artificially trigger a spontaneous TXKU if possible. */
+int ossl_quic_channel_trigger_txku(QUIC_CHANNEL *ch);
+int ossl_quic_channel_has_pending(const QUIC_CHANNEL *ch);
+
+/* Force transmission of an ACK-eliciting packet. */
+int ossl_quic_channel_ping(QUIC_CHANNEL *ch);
+
+/* For testing use. While enabled, ticking is not performed. */
+void ossl_quic_channel_set_inhibit_tick(QUIC_CHANNEL *ch, int inhibit);
 
 # endif
 

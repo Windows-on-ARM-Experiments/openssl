@@ -20,6 +20,7 @@
 #include "internal/quic_record_tx.h"
 #include "internal/quic_error.h"
 #include "internal/packet.h"
+#include "internal/tsan_assist.h"
 
 #define GROWTH_ALLOWANCE 1024
 
@@ -31,7 +32,7 @@ struct qtest_fault {
     QUIC_PKT_HDR pplainhdr;
     /* iovec for the plaintext packet data buffer */
     OSSL_QTX_IOVEC pplainio;
-    /* Allocted size of the plaintext packet data buffer */
+    /* Allocated size of the plaintext packet data buffer */
     size_t pplainbuf_alloc;
     qtest_fault_on_packet_plain_cb pplaincb;
     void *pplaincbarg;
@@ -64,11 +65,16 @@ struct qtest_fault {
 static void packet_plain_finish(void *arg);
 static void handshake_finish(void *arg);
 
-static BIO_METHOD *get_bio_method(void);
+static OSSL_TIME fake_now;
+
+static OSSL_TIME fake_now_cb(void *arg)
+{
+    return fake_now;
+}
 
 int qtest_create_quic_objects(OSSL_LIB_CTX *libctx, SSL_CTX *clientctx,
-                              char *certfile, char *keyfile,
-                              int block, QUIC_TSERVER **qtserv, SSL **cssl,
+                              SSL_CTX *serverctx, char *certfile, char *keyfile,
+                              int flags, QUIC_TSERVER **qtserv, SSL **cssl,
                               QTEST_FAULT **fault)
 {
     /* ALPN value as recognised by QUIC_TSERVER */
@@ -81,9 +87,12 @@ int qtest_create_quic_objects(OSSL_LIB_CTX *libctx, SSL_CTX *clientctx,
     *qtserv = NULL;
     if (fault != NULL)
         *fault = NULL;
-    *cssl = SSL_new(clientctx);
-    if (!TEST_ptr(*cssl))
-        return 0;
+
+    if (*cssl == NULL) {
+        *cssl = SSL_new(clientctx);
+        if (!TEST_ptr(*cssl))
+            return 0;
+    }
 
     /* SSL_set_alpn_protos returns 0 for success! */
     if (!TEST_false(SSL_set_alpn_protos(*cssl, alpn, sizeof(alpn))))
@@ -92,7 +101,7 @@ int qtest_create_quic_objects(OSSL_LIB_CTX *libctx, SSL_CTX *clientctx,
     if (!TEST_ptr(peeraddr = BIO_ADDR_new()))
         goto err;
 
-    if (block) {
+    if ((flags & QTEST_FLAG_BLOCK) != 0) {
 #if !defined(OPENSSL_NO_POSIX_IO)
         int cfd, sfd;
 
@@ -132,7 +141,8 @@ int qtest_create_quic_objects(OSSL_LIB_CTX *libctx, SSL_CTX *clientctx,
 
     SSL_set_bio(*cssl, cbio, cbio);
 
-    if (!TEST_true(SSL_set_blocking_mode(*cssl, block)))
+    if (!TEST_true(SSL_set_blocking_mode(*cssl,
+                                         (flags & QTEST_FLAG_BLOCK) != 0 ? 1 : 0)))
         goto err;
 
     if (!TEST_true(SSL_set_initial_peer_addr(*cssl, peeraddr)))
@@ -144,7 +154,7 @@ int qtest_create_quic_objects(OSSL_LIB_CTX *libctx, SSL_CTX *clientctx,
             goto err;
     }
 
-    fisbio = BIO_new(get_bio_method());
+    fisbio = BIO_new(qtest_get_bio_method());
     if (!TEST_ptr(fisbio))
         goto err;
 
@@ -156,6 +166,14 @@ int qtest_create_quic_objects(OSSL_LIB_CTX *libctx, SSL_CTX *clientctx,
     tserver_args.libctx = libctx;
     tserver_args.net_rbio = sbio;
     tserver_args.net_wbio = fisbio;
+    tserver_args.alpn = NULL;
+    if (serverctx != NULL && !TEST_true(SSL_CTX_up_ref(serverctx)))
+        goto err;
+    tserver_args.ctx = serverctx;
+    if ((flags & QTEST_FLAG_FAKE_TIME) != 0) {
+        fake_now = ossl_time_zero();
+        tserver_args.now_cb = fake_now_cb;
+    }
 
     if (!TEST_ptr(*qtserv = ossl_quic_tserver_new(&tserver_args, certfile,
                                                   keyfile)))
@@ -172,6 +190,7 @@ int qtest_create_quic_objects(OSSL_LIB_CTX *libctx, SSL_CTX *clientctx,
 
     return 1;
  err:
+    SSL_CTX_free(tserver_args.ctx);
     BIO_ADDR_free(peeraddr);
     BIO_free(cbio);
     BIO_free(fisbio);
@@ -183,6 +202,24 @@ int qtest_create_quic_objects(OSSL_LIB_CTX *libctx, SSL_CTX *clientctx,
         OPENSSL_free(*fault);
 
     return 0;
+}
+
+void qtest_add_time(uint64_t millis)
+{
+    fake_now = ossl_time_add(fake_now, ossl_ms2time(millis));
+}
+
+QTEST_FAULT *qtest_create_injector(QUIC_TSERVER *ts)
+{
+    QTEST_FAULT *f;
+
+    f = OPENSSL_zalloc(sizeof(*f));
+    if (f == NULL)
+        return NULL;
+
+    f->qtserv = ts;
+    return f;
+
 }
 
 int qtest_supports_blocking(void)
@@ -262,7 +299,7 @@ int qtest_create_quic_connection(QUIC_TSERVER *qtserv, SSL *clientssl)
 
         /*
          * We're cheating. We don't take any notice of SSL_get_tick_timeout()
-         * and tick everytime around the loop anyway. This is inefficient. We
+         * and tick every time around the loop anyway. This is inefficient. We
          * can get away with it in test code because we control both ends of
          * the communications and don't expect network delays. This shouldn't
          * be done in a real application.
@@ -270,6 +307,7 @@ int qtest_create_quic_connection(QUIC_TSERVER *qtserv, SSL *clientssl)
         if (!clienterr && retc <= 0)
             SSL_handle_events(clientssl);
         if (!servererr && rets <= 0) {
+            qtest_add_time(1);
             ossl_quic_tserver_tick(qtserv);
             servererr = ossl_quic_tserver_is_term_any(qtserv);
             if (!servererr)
@@ -301,13 +339,77 @@ int qtest_create_quic_connection(QUIC_TSERVER *qtserv, SSL *clientssl)
     return ret;
 }
 
+#if defined(OPENSSL_THREADS) && !defined(CRYPTO_TDEBUG)
+static TSAN_QUALIFIER int shutdowndone;
+
+static void run_server_shutdown_thread(void)
+{
+    /*
+     * This will operate in a busy loop because the server does not block,
+     * but should be acceptable because it is local and we expect this to be
+     * fast
+     */
+    do {
+        ossl_quic_tserver_tick(globtserv);
+    } while(!tsan_load(&shutdowndone));
+}
+#endif
+
 int qtest_shutdown(QUIC_TSERVER *qtserv, SSL *clientssl)
 {
-    /* Busy loop in non-blocking mode. It should be quick because its local */
-    while (SSL_shutdown(clientssl) != 1)
-        ossl_quic_tserver_tick(qtserv);
+    int tickserver = 1;
+    int ret = 0;
+#if defined(OPENSSL_THREADS) && !defined(CRYPTO_TDEBUG)
+    /*
+     * Pointless initialisation to avoid bogus compiler warnings about using
+     * t uninitialised
+     */
+    thread_t t = thread_zero;
+#endif
 
-    return 1;
+    if (SSL_get_blocking_mode(clientssl) > 0) {
+#if defined(OPENSSL_THREADS) && !defined(CRYPTO_TDEBUG)
+        /*
+         * clientssl is blocking. We will need a thread to complete the
+         * connection
+         */
+        globtserv = qtserv;
+        shutdowndone = 0;
+        if (!TEST_true(run_thread(&t, run_server_shutdown_thread)))
+            return 0;
+
+        tickserver = 0;
+#else
+        TEST_error("No thread support in this build");
+        return 0;
+#endif
+    }
+
+    /* Busy loop in non-blocking mode. It should be quick because its local */
+    for (;;) {
+        int rc = SSL_shutdown(clientssl);
+
+        if (rc == 1) {
+            ret = 1;
+            break;
+        }
+
+        if (rc < 0)
+            break;
+
+        if (tickserver)
+            ossl_quic_tserver_tick(qtserv);
+    }
+
+#if defined(OPENSSL_THREADS) && !defined(CRYPTO_TDEBUG)
+    tsan_store(&shutdowndone, 1);
+    if (!tickserver) {
+        if (!TEST_true(wait_for_thread(t)))
+            ret = 0;
+    }
+#endif
+
+    return ret;
 }
 
 int qtest_check_server_transport_err(QUIC_TSERVER *qtserv, uint64_t code)
@@ -325,6 +427,7 @@ int qtest_check_server_transport_err(QUIC_TSERVER *qtserv, uint64_t code)
     cause = ossl_quic_tserver_get_terminate_cause(qtserv);
     if  (!TEST_ptr(cause)
             || !TEST_true(cause->remote)
+            || !TEST_false(cause->app)
             || !TEST_uint64_t_eq(cause->error_code, code))
         return 0;
 
@@ -334,6 +437,11 @@ int qtest_check_server_transport_err(QUIC_TSERVER *qtserv, uint64_t code)
 int qtest_check_server_protocol_err(QUIC_TSERVER *qtserv)
 {
     return qtest_check_server_transport_err(qtserv, QUIC_ERR_PROTOCOL_VIOLATION);
+}
+
+int qtest_check_server_frame_encoding_err(QUIC_TSERVER *qtserv)
+{
+    return qtest_check_server_transport_err(qtserv, QUIC_ERR_FRAME_ENCODING_ERROR);
 }
 
 void qtest_fault_free(QTEST_FAULT *fault)
@@ -459,7 +567,7 @@ int qtest_fault_resize_plain_packet(QTEST_FAULT *fault, size_t newlen)
  * Prepend frame data into a packet. To be called from a packet_plain_listener
  * callback
  */
-int qtest_fault_prepend_frame(QTEST_FAULT *fault, unsigned char *frame,
+int qtest_fault_prepend_frame(QTEST_FAULT *fault, const unsigned char *frame,
                               size_t frame_len)
 {
     unsigned char *buf;
@@ -736,7 +844,13 @@ static int pcipher_sendmmsg(BIO *b, BIO_MSG *msg, size_t stride,
 
             do {
                 if (!ossl_quic_wire_decode_pkt_hdr(&pkt,
-                        0 /* TODO(QUIC): Not sure how this should be set*/, 1,
+                        /*
+                         * TODO(QUIC SERVER):
+                         * Needs to be set to the actual short header CID length
+                         * when testing the server implementation.
+                         */
+                        0,
+                        1,
                         0, &hdr, NULL))
                     goto out;
 
@@ -749,7 +863,7 @@ static int pcipher_sendmmsg(BIO *b, BIO_MSG *msg, size_t stride,
                     goto out;
 
                 /*
-                 * TODO(QUIC): At the moment modifications to hdr by the callback
+                 * At the moment modifications to hdr by the callback
                  * are ignored. We might need to rewrite the QUIC header to
                  * enable tests to change this. We also don't yet have a
                  * mechanism for the callback to change the encrypted data
@@ -791,7 +905,7 @@ static long pcipher_ctrl(BIO *b, int cmd, long larg, void *parg)
     return BIO_ctrl(next, cmd, larg, parg);
 }
 
-static BIO_METHOD *get_bio_method(void)
+BIO_METHOD *qtest_get_bio_method(void)
 {
     BIO_METHOD *tmp;
 

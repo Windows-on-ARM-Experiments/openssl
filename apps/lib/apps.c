@@ -908,10 +908,10 @@ static const char *format2string(int format)
         SET_EXPECT(val); \
     }
 #define FAIL_NAME \
-    (ppkey != NULL ? "key etc." : ppubkey != NULL ? "public key etc." : \
-     pparams != NULL ? "params etc." :                                  \
-     pcert != NULL ? "cert etc." : pcerts != NULL ? "certs etc." :      \
-     pcrl != NULL ? "CRL etc." : pcrls != NULL ? "CRLs etc." : NULL)
+    (ppkey != NULL ? "private key" : ppubkey != NULL ? "public key" :  \
+     pparams != NULL ? "key parameters" :                              \
+     pcert != NULL ? "certificate" : pcerts != NULL ? "certificates" : \
+     pcrl != NULL ? "CRL" : pcrls != NULL ? "CRLs" : NULL)
 /*
  * Load those types of credentials for which the result pointer is not NULL.
  * Reads from stdio if uri is NULL and maybe_stdin is nonzero.
@@ -2043,7 +2043,8 @@ int bio_to_mem(unsigned char **out, int maxlen, BIO *in)
             BIO_free(mem);
             return -1;
         }
-        maxlen -= len;
+        if (maxlen != -1)
+            maxlen -= len;
 
         if (maxlen == 0)
             break;

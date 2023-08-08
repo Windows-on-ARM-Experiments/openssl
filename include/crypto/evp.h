@@ -204,7 +204,6 @@ struct evp_mac_st {
     const char *description;
 
     CRYPTO_REF_COUNT refcnt;
-    CRYPTO_RWLOCK *lock;
 
     OSSL_FUNC_mac_newctx_fn *newctx;
     OSSL_FUNC_mac_dupctx_fn *dupctx;
@@ -226,7 +225,6 @@ struct evp_kdf_st {
     char *type_name;
     const char *description;
     CRYPTO_REF_COUNT refcnt;
-    CRYPTO_RWLOCK *lock;
 
     OSSL_FUNC_kdf_newctx_fn *newctx;
     OSSL_FUNC_kdf_dupctx_fn *dupctx;
@@ -271,7 +269,6 @@ struct evp_md_st {
     const char *description;
     OSSL_PROVIDER *prov;
     CRYPTO_REF_COUNT refcnt;
-    CRYPTO_RWLOCK *lock;
     OSSL_FUNC_digest_newctx_fn *newctx;
     OSSL_FUNC_digest_init_fn *dinit;
     OSSL_FUNC_digest_update_fn *dupdate;
@@ -327,7 +324,6 @@ struct evp_cipher_st {
     const char *description;
     OSSL_PROVIDER *prov;
     CRYPTO_REF_COUNT refcnt;
-    CRYPTO_RWLOCK *lock;
     OSSL_FUNC_cipher_newctx_fn *newctx;
     OSSL_FUNC_cipher_encrypt_init_fn *einit;
     OSSL_FUNC_cipher_decrypt_init_fn *dinit;
@@ -647,7 +643,9 @@ union legacy_pkey_st {
 #  endif
 #  ifndef OPENSSL_NO_EC
     struct ec_key_st *ec;   /* ECC */
+#   ifndef OPENSSL_NO_ECX
     ECX_KEY *ecx;           /* X25519, X448, Ed25519, Ed448 */
+#   endif
 #  endif
 };
 
@@ -892,10 +890,6 @@ EVP_MD_CTX *evp_md_ctx_new_ex(EVP_PKEY *pkey, const ASN1_OCTET_STRING *id,
                               OSSL_LIB_CTX *libctx, const char *propq);
 int evp_pkey_name2type(const char *name);
 const char *evp_pkey_type2name(int type);
-
-int evp_pkey_ctx_set1_id_prov(EVP_PKEY_CTX *ctx, const void *id, int len);
-int evp_pkey_ctx_get1_id_prov(EVP_PKEY_CTX *ctx, void *id);
-int evp_pkey_ctx_get1_id_len_prov(EVP_PKEY_CTX *ctx, size_t *id_len);
 
 int evp_pkey_ctx_use_cached_data(EVP_PKEY_CTX *ctx);
 # endif /* !defined(FIPS_MODULE) */

@@ -18,6 +18,14 @@
 # include "internal/e_os.h" /* ossl_inline in many files */
 # include "internal/nelem.h"
 
+#if defined(__GNUC__) || defined(__clang__)
+    #define likely(x) __builtin_expect(!!(x), 1)
+    #define unlikely(x) __builtin_expect(!!(x), 0)
+#else
+    #define likely(x) x
+    #define unlikely(x) x
+#endif
+
 #ifdef NDEBUG
 # define ossl_assert(x) ((x) != 0)
 #else
@@ -75,14 +83,6 @@ __owur static ossl_inline int ossl_assert_int(int expr, const char *exprstr,
 #  define CTLOG_FILE              "OSSL$DATAROOT:[000000]ct_log_list.cnf"
 # endif
 
-#ifndef OPENSSL_NO_WINSTORE
-# define X509_CERT_URI            "org.openssl.winstore://"
-#else
-# define X509_CERT_URI            ""
-#endif
-
-# define X509_CERT_URI_EVP        "SSL_CERT_URI"
-# define X509_CERT_PATH_EVP       "SSL_CERT_PATH"
 # define X509_CERT_DIR_EVP        "SSL_CERT_DIR"
 # define X509_CERT_FILE_EVP       "SSL_CERT_FILE"
 # define CTLOG_FILE_EVP           "CTLOG_FILE"

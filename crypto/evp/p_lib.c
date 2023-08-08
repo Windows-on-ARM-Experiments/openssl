@@ -722,6 +722,7 @@ static void detect_foreign_key(EVP_PKEY *pkey)
         break;
 #  ifndef OPENSSL_NO_EC
     case EVP_PKEY_SM2:
+        break;
     case EVP_PKEY_EC:
         pkey->foreign = pkey->pkey.ec != NULL
                         && ossl_ec_key_is_foreign(pkey->pkey.ec);
@@ -872,7 +873,7 @@ DSA *EVP_PKEY_get1_DSA(EVP_PKEY *pkey)
 }
 # endif /*  OPENSSL_NO_DSA */
 
-# ifndef OPENSSL_NO_EC
+# ifndef OPENSSL_NO_ECX
 static const ECX_KEY *evp_pkey_get0_ECX_KEY(const EVP_PKEY *pkey, int type)
 {
     if (EVP_PKEY_get_base_id(pkey) != type) {
@@ -901,7 +902,7 @@ IMPLEMENT_ECX_VARIANT(X448)
 IMPLEMENT_ECX_VARIANT(ED25519)
 IMPLEMENT_ECX_VARIANT(ED448)
 
-# endif
+# endif /* OPENSSL_NO_ECX */
 
 # if !defined(OPENSSL_NO_DH) && !defined(OPENSSL_NO_DEPRECATED_3_0)
 
@@ -1448,7 +1449,9 @@ EVP_PKEY *EVP_PKEY_new(void)
 
     ret->type = EVP_PKEY_NONE;
     ret->save_type = EVP_PKEY_NONE;
-    ret->references = 1;
+
+    if (!CRYPTO_NEW_REF(&ret->references, 1))
+        goto err;
 
     ret->lock = CRYPTO_THREAD_lock_new();
     if (ret->lock == NULL) {
@@ -1466,6 +1469,7 @@ EVP_PKEY *EVP_PKEY_new(void)
     return ret;
 
  err:
+    CRYPTO_FREE_REF(&ret->references);
     CRYPTO_THREAD_lock_free(ret->lock);
     OPENSSL_free(ret);
     return NULL;
@@ -1655,7 +1659,7 @@ int EVP_PKEY_up_ref(EVP_PKEY *pkey)
 {
     int i;
 
-    if (CRYPTO_UP_REF(&pkey->references, &i, pkey->lock) <= 0)
+    if (CRYPTO_UP_REF(&pkey->references, &i) <= 0)
         return 0;
 
     REF_PRINT_COUNT("EVP_PKEY", pkey);
@@ -1778,7 +1782,7 @@ void EVP_PKEY_free(EVP_PKEY *x)
     if (x == NULL)
         return;
 
-    CRYPTO_DOWN_REF(&x->references, &i, x->lock);
+    CRYPTO_DOWN_REF(&x->references, &i);
     REF_PRINT_COUNT("EVP_PKEY", x);
     if (i > 0)
         return;
@@ -1788,6 +1792,7 @@ void EVP_PKEY_free(EVP_PKEY *x)
     CRYPTO_free_ex_data(CRYPTO_EX_INDEX_EVP_PKEY, x, &x->ex_data);
 #endif
     CRYPTO_THREAD_lock_free(x->lock);
+    CRYPTO_FREE_REF(&x->references);
 #ifndef FIPS_MODULE
     sk_X509_ATTRIBUTE_pop_free(x->attributes, X509_ATTRIBUTE_free);
 #endif

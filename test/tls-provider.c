@@ -78,7 +78,6 @@ typedef struct xorkey_st {
     int haspubkey;
     char *tls_name;
     CRYPTO_REF_COUNT references;
-    CRYPTO_RWLOCK *lock;
 } XORKEY;
 
 /* Key Management for the dummy XOR KEX, KEM and signature algorithms */
@@ -688,10 +687,7 @@ static void *xor_newkey(void *provctx)
     if (ret == NULL)
         return NULL;
 
-    ret->references = 1;
-    ret->lock = CRYPTO_THREAD_lock_new();
-    if (ret->lock == NULL) {
-        ERR_raise(ERR_LIB_USER, ERR_R_MALLOC_FAILURE);
+    if (!CRYPTO_NEW_REF(&ret->references, 1)) {
         OPENSSL_free(ret);
         return NULL;
     }
@@ -707,7 +703,7 @@ static void xor_freekey(void *keydata)
     if (key == NULL)
         return;
 
-    if (CRYPTO_DOWN_REF(&key->references, &refcnt, key->lock) <= 0)
+    if (CRYPTO_DOWN_REF(&key->references, &refcnt) <= 0)
         return;
 
     if (refcnt > 0)
@@ -718,7 +714,7 @@ static void xor_freekey(void *keydata)
         OPENSSL_free(key->tls_name);
         key->tls_name = NULL;
     }
-    CRYPTO_THREAD_lock_free(key->lock);
+    CRYPTO_FREE_REF(&key->references);
     OPENSSL_free(key);
 }
 
@@ -726,7 +722,7 @@ static int xor_key_up_ref(XORKEY *key)
 {
     int refcnt;
 
-    if (CRYPTO_UP_REF(&key->references, &refcnt, key->lock) <= 0)
+    if (CRYPTO_UP_REF(&key->references, &refcnt) <= 0)
         return 0;
 
     assert(refcnt > 1);
@@ -1436,7 +1432,7 @@ static X509_PUBKEY *xorx_key_to_pubkey(const void *key, int key_nid,
  * EncryptedPrivateKeyInfo structure (defined by PKCS#8).  They require
  * that there's an intent to encrypt, anything else is an error.
  *
- * key_to_pki_* primarly produce encoded output with the private key data
+ * key_to_pki_* primarily produce encoded output with the private key data
  * in a PrivateKeyInfo structure (also defined by PKCS#8).  However, if
  * there is an intent to encrypt the data, the corresponding key_to_epki_*
  * function is used instead.

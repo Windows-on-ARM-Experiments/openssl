@@ -1,13 +1,14 @@
 #! /usr/bin/env perl
+# This file is dual-licensed, meaning that you can use it under your
+# choice of either of the following two licenses:
+#
 # Copyright 2022 The OpenSSL Project Authors. All Rights Reserved.
 #
-# Licensed under the Apache License 2.0 (the "License").  You may not use
-# this file except in compliance with the License.  You can obtain a copy
-# in the file LICENSE in the source distribution or at
+# Licensed under the Apache License 2.0 (the "License"). You can obtain
+# a copy in the file LICENSE in the source distribution or at
 # https://www.openssl.org/source/license.html
-
-# This file is dual-licensed and is also available under the following
-# terms:
+#
+# or
 #
 # Copyright (c) 2023, Christoph Müllner <christoph.muellner@vrull.eu>
 # All rights reserved.
@@ -265,7 +266,7 @@ ___
 # input:  Xi: current hash value
 #         Htable: copy of H
 #         inp: pointer to input data
-#         len: length of input data in bytes (mutiple of block size)
+#         len: length of input data in bytes (multiple of block size)
 # output: Xi: Xi+1 (next hash value Xi)
 {
 my ($Xi,$Htable,$inp,$len,$x0,$x1,$y0,$y1) = ("a0","a1","a2","a3","a4","a5","a6","a7");

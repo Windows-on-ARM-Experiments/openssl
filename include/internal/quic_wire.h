@@ -87,6 +87,8 @@
 #  define OSSL_QUIC_FRAME_TYPE_IS_CONN_CLOSE(x) \
     (((x) & ~(uint64_t)1) == OSSL_QUIC_FRAME_TYPE_CONN_CLOSE_TRANSPORT)
 
+const char *ossl_quic_frame_type_to_string(uint64_t frame_type);
+
 static ossl_unused ossl_inline int
 ossl_quic_frame_type_is_ack_eliciting(uint64_t frame_type)
 {
@@ -159,6 +161,9 @@ typedef struct ossl_quic_frame_ack_st {
     unsigned int                ecn_present : 1;
 } OSSL_QUIC_FRAME_ACK;
 
+/* Returns 1 if the given frame contains the given PN. */
+int ossl_quic_frame_ack_contains_pn(const OSSL_QUIC_FRAME_ACK *ack, QUIC_PN pn);
+
 /* QUIC Frame: STREAM */
 typedef struct ossl_quic_frame_stream_st {
     uint64_t                stream_id;  /* Stream ID */
@@ -206,7 +211,7 @@ typedef struct ossl_quic_frame_new_conn_id_st {
     uint64_t              seq_num;
     uint64_t              retire_prior_to;
     QUIC_CONN_ID          conn_id;
-    unsigned char         stateless_reset_token[16];
+    unsigned char         stateless_reset_token[QUIC_STATELESS_RESET_TOKEN_LEN];
 } OSSL_QUIC_FRAME_NEW_CONN_ID;
 
 /* QUIC Frame: CONNECTION_CLOSE */
@@ -490,7 +495,8 @@ int ossl_quic_wire_encode_transport_param_cid(WPACKET *wpkt,
  * position). This can be used to determine the frame type and determine which
  * frame decoding function to call.
  */
-int ossl_quic_wire_peek_frame_header(PACKET *pkt, uint64_t *type);
+int ossl_quic_wire_peek_frame_header(PACKET *pkt, uint64_t *type,
+                                     int *was_minimal);
 
 /*
  * Like ossl_quic_wire_peek_frame_header, but advances the current position
@@ -759,6 +765,19 @@ int ossl_quic_wire_decode_transport_param_int(PACKET *pkt,
 int ossl_quic_wire_decode_transport_param_cid(PACKET *pkt,
                                               uint64_t *id,
                                               QUIC_CONN_ID *cid);
+
+/*
+ * Decodes a QUIC transport parameter TLV containing a preferred_address.
+ */
+typedef struct quic_preferred_addr_st {
+    uint16_t      ipv4_port, ipv6_port;
+    unsigned char ipv4[4], ipv6[16];
+    unsigned char stateless_reset_token[QUIC_STATELESS_RESET_TOKEN_LEN];
+    QUIC_CONN_ID  cid;
+} QUIC_PREFERRED_ADDR;
+
+int ossl_quic_wire_decode_transport_param_preferred_addr(PACKET *pkt,
+                                                         QUIC_PREFERRED_ADDR *p);
 
 # endif
 

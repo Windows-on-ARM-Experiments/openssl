@@ -110,20 +110,17 @@ SSL_SESSION *SSL_SESSION_new(void)
         return NULL;
 
     ss->verify_result = 1;      /* avoid 0 (= X509_V_OK) just in case */
-    ss->references = 1;
    /* 5 minute timeout by default */
     ss->timeout = ossl_seconds2time(60 * 5 + 4);
     ss->time = ossl_time_now();
     ssl_session_calculate_timeout(ss);
-    ss->lock = CRYPTO_THREAD_lock_new();
-    if (ss->lock == NULL) {
-        ERR_raise(ERR_LIB_SSL, ERR_R_CRYPTO_LIB);
+    if (!CRYPTO_NEW_REF(&ss->references, 1)) {
         OPENSSL_free(ss);
         return NULL;
     }
 
     if (!CRYPTO_new_ex_data(CRYPTO_EX_INDEX_SSL_SESSION, ss, &ss->ex_data)) {
-        CRYPTO_THREAD_lock_free(ss->lock);
+        CRYPTO_FREE_REF(&ss->references);
         OPENSSL_free(ss);
         return NULL;
     }
@@ -144,9 +141,8 @@ SSL_SESSION *ssl_session_dup(const SSL_SESSION *src, int ticket)
     SSL_SESSION *dest;
 
     dest = OPENSSL_malloc(sizeof(*dest));
-    if (dest == NULL) {
-        goto err;
-    }
+    if (dest == NULL)
+        return NULL;
     memcpy(dest, src, sizeof(*dest));
 
     /*
@@ -174,12 +170,9 @@ SSL_SESSION *ssl_session_dup(const SSL_SESSION *src, int ticket)
     dest->next = NULL;
     dest->owner = NULL;
 
-    dest->references = 1;
-
-    dest->lock = CRYPTO_THREAD_lock_new();
-    if (dest->lock == NULL) {
-        ERR_raise(ERR_LIB_SSL, ERR_R_CRYPTO_LIB);
-        goto err;
+    if (!CRYPTO_NEW_REF(&dest->references, 1)) {
+        OPENSSL_free(dest);
+        return NULL;
     }
 
     if (!CRYPTO_new_ex_data(CRYPTO_EX_INDEX_SSL_SESSION, dest, &dest->ex_data)) {
@@ -821,7 +814,7 @@ void SSL_SESSION_free(SSL_SESSION *ss)
 
     if (ss == NULL)
         return;
-    CRYPTO_DOWN_REF(&ss->references, &i, ss->lock);
+    CRYPTO_DOWN_REF(&ss->references, &i);
     REF_PRINT_COUNT("SSL_SESSION", ss);
     if (i > 0)
         return;
@@ -845,7 +838,7 @@ void SSL_SESSION_free(SSL_SESSION *ss)
 #endif
     OPENSSL_free(ss->ext.alpn_selected);
     OPENSSL_free(ss->ticket_appdata);
-    CRYPTO_THREAD_lock_free(ss->lock);
+    CRYPTO_FREE_REF(&ss->references);
     OPENSSL_clear_free(ss, sizeof(*ss));
 }
 
@@ -853,7 +846,7 @@ int SSL_SESSION_up_ref(SSL_SESSION *ss)
 {
     int i;
 
-    if (CRYPTO_UP_REF(&ss->references, &i, ss->lock) <= 0)
+    if (CRYPTO_UP_REF(&ss->references, &i) <= 0)
         return 0;
 
     REF_PRINT_COUNT("SSL_SESSION", ss);

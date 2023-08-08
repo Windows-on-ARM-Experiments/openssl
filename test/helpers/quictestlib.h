@@ -24,15 +24,29 @@ typedef struct qtest_fault_encrypted_extensions {
     size_t extensionslen;
 } QTEST_ENCRYPTED_EXTENSIONS;
 
+/* Flags for use with qtest_create_quic_objects() */
+
+/* Indicates whether we are using blocking mode or not */
+#define QTEST_FLAG_BLOCK        1
+/* Use fake time rather than real time */
+#define QTEST_FLAG_FAKE_TIME    2
+
 /*
  * Given an SSL_CTX for the client and filenames for the server certificate and
  * keyfile, create a server and client instances as well as a fault injector
- * instance. |block| indicates whether we are using blocking mode or not.
+ * instance. |flags| is the logical or of flags defined above, or 0 if none.
  */
 int qtest_create_quic_objects(OSSL_LIB_CTX *libctx, SSL_CTX *clientctx,
-                              char *certfile, char *keyfile, int block,
-                              QUIC_TSERVER **qtserv, SSL **cssl,
+                              SSL_CTX *serverctx, char *certfile, char *keyfile,
+                              int flags, QUIC_TSERVER **qtserv, SSL **cssl,
                               QTEST_FAULT **fault);
+
+/* Where QTEST_FLAG_FAKE_TIME is used, add millis to the current time */
+void qtest_add_time(uint64_t millis);
+
+QTEST_FAULT *qtest_create_injector(QUIC_TSERVER *ts);
+
+BIO_METHOD *qtest_get_bio_method(void);
 
 /*
  * Free up a Fault Injector instance
@@ -65,6 +79,12 @@ int qtest_check_server_transport_err(QUIC_TSERVER *qtserv, uint64_t code);
 int qtest_check_server_protocol_err(QUIC_TSERVER *qtserv);
 
 /*
+ * Confirm the server has received a frame encoding error. Equivalent to calling
+ * qtest_check_server_transport_err with a code of QUIC_ERR_FRAME_ENCODING_ERROR
+ */
+int qtest_check_server_frame_encoding_err(QUIC_TSERVER *qtserv);
+
+/*
  * Enable tests to listen for pre-encryption QUIC packets being sent
  */
 typedef int (*qtest_fault_on_packet_plain_cb)(QTEST_FAULT *fault,
@@ -92,7 +112,7 @@ int qtest_fault_resize_plain_packet(QTEST_FAULT *fault, size_t newlen);
  * Prepend frame data into a packet. To be called from a packet_plain_listener
  * callback
  */
-int qtest_fault_prepend_frame(QTEST_FAULT *fault, unsigned char *frame,
+int qtest_fault_prepend_frame(QTEST_FAULT *fault, const unsigned char *frame,
                               size_t frame_len);
 
 /*
@@ -120,7 +140,7 @@ int qtest_fault_set_handshake_listener(QTEST_FAULT *fault,
 int qtest_fault_resize_handshake(QTEST_FAULT *fault, size_t newlen);
 
 /*
- * TODO(QUIC): Add listeners for specifc types of frame here. E.g. we might
+ * Add listeners for specific types of frame here. E.g. we might
  * expect to see an "ACK" frame listener which will be passed pre-parsed ack
  * data that can be modified as required.
  */
@@ -139,7 +159,7 @@ int qtest_fault_set_hand_enc_ext_listener(QTEST_FAULT *fault,
                                           qtest_fault_on_enc_ext_cb encextcb,
                                           void *encextcbarg);
 
-/* TODO(QUIC): Add listeners for other types of handshake message here */
+/* Add listeners for other types of handshake message here */
 
 
 /*
@@ -163,7 +183,7 @@ int qtest_fault_delete_extension(QTEST_FAULT *fault,
                                  size_t *extlen);
 
 /*
- * TODO(QUIC): Add additional helper functions for querying extensions here (e.g.
+ * Add additional helper functions for querying extensions here (e.g.
  * finding or adding them). We could also provide a "listener" API for listening
  * for specific extension types
  */

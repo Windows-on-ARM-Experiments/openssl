@@ -1285,9 +1285,7 @@ int s_client_main(int argc, char **argv)
 #ifndef OPENSSL_NO_DTLS
             isdtls = 0;
 #endif
-#ifndef OPENSS_NO_QUIC
             isquic = 0;
-#endif
             break;
         case OPT_TLS1_3:
             min_version = TLS1_3_VERSION;
@@ -1296,9 +1294,7 @@ int s_client_main(int argc, char **argv)
 #ifndef OPENSSL_NO_DTLS
             isdtls = 0;
 #endif
-#ifndef OPENSS_NO_QUIC
             isquic = 0;
-#endif
             break;
         case OPT_TLS1_2:
             min_version = TLS1_2_VERSION;
@@ -1307,9 +1303,7 @@ int s_client_main(int argc, char **argv)
 #ifndef OPENSSL_NO_DTLS
             isdtls = 0;
 #endif
-#ifndef OPENSS_NO_QUIC
             isquic = 0;
-#endif
             break;
         case OPT_TLS1_1:
             min_version = TLS1_1_VERSION;
@@ -1318,9 +1312,7 @@ int s_client_main(int argc, char **argv)
 #ifndef OPENSSL_NO_DTLS
             isdtls = 0;
 #endif
-#ifndef OPENSS_NO_QUIC
             isquic = 0;
-#endif
             break;
         case OPT_TLS1:
             min_version = TLS1_VERSION;
@@ -1329,18 +1321,14 @@ int s_client_main(int argc, char **argv)
 #ifndef OPENSSL_NO_DTLS
             isdtls = 0;
 #endif
-#ifndef OPENSS_NO_QUIC
             isquic = 0;
-#endif
             break;
         case OPT_DTLS:
 #ifndef OPENSSL_NO_DTLS
             meth = DTLS_client_method();
             socket_type = SOCK_DGRAM;
             isdtls = 1;
-# ifndef OPENSS_NO_QUIC
             isquic = 0;
-# endif
 #endif
             break;
         case OPT_DTLS1:
@@ -1350,9 +1338,7 @@ int s_client_main(int argc, char **argv)
             max_version = DTLS1_VERSION;
             socket_type = SOCK_DGRAM;
             isdtls = 1;
-# ifndef OPENSS_NO_QUIC
             isquic = 0;
-# endif
 #endif
             break;
         case OPT_DTLS1_2:
@@ -1362,9 +1348,7 @@ int s_client_main(int argc, char **argv)
             max_version = DTLS1_2_VERSION;
             socket_type = SOCK_DGRAM;
             isdtls = 1;
-# ifndef OPENSS_NO_QUIC
             isquic = 0;
-# endif
 #endif
             break;
         case OPT_QUIC:
@@ -2269,7 +2253,7 @@ int s_client_main(int argc, char **argv)
     if (isquic) {
         sbio = BIO_new_dgram(sock, BIO_NOCLOSE);
         if (!SSL_set_initial_peer_addr(con, peer_addr)) {
-            BIO_printf(bio_err, "Failed to set the inital peer address\n");
+            BIO_printf(bio_err, "Failed to set the initial peer address\n");
             goto shut;
         }
     } else
@@ -4019,7 +4003,7 @@ static int user_data_process(struct user_data_st *user_data, size_t *len,
                     && user_data->buf[user_data->bufoff] == '\n') {
                 /*
                  * This command was the only thing on the whole line. We
-                 * supress the final `\n`
+                 * suppress the final `\n`
                  */
                 user_data->bufoff = 0;
                 user_data->buflen = 0;

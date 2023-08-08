@@ -28,6 +28,7 @@
 #include "internal/refcount.h"
 #include "internal/bio.h"
 #include "internal/core.h"
+#include "internal/decoder.h"
 #include "provider_local.h"
 #include "crypto/context.h"
 #ifndef FIPS_MODULE
@@ -75,8 +76,8 @@
  * The provider flag_lock: Used to control updates to the various provider
  * "flags" (flag_initialized and flag_activated).
  *
- * The provider refcnt_lock: Used to control updates to the provider refcnt and
- * activatecnt values.
+ * The provider activatecnt_lock: Used to control updates to the provider
+ * activatecnt value.
  *
  * The provider optbits_lock: Used to control access to the provider's
  * operation_bits and operation_bits_sz fields.
@@ -99,12 +100,12 @@
  * introducing the possibility of deadlock. The following rules MUST be adhered
  * to in order to avoid that:
  *  - Holding multiple locks at the same time is only allowed for the
- *    provider store lock, the provider flag_lock and the provider refcnt_lock.
+ *    provider store lock, the provider activatecnt_lock and the provider flag_lock.
  *  - When holding multiple locks they must be acquired in the following order of
  *    precedence:
  *        1) provider store lock
  *        2) provider flag_lock
- *        3) provider refcnt_lock
+ *        3) provider activatecnt_lock
  *  - When releasing locks they must be released in the reverse order to which
  *    they were acquired
  *  - No locks may be held when making an upcall. NOTE: Some common functions
@@ -148,7 +149,7 @@ struct ossl_provider_st {
 
     /* OpenSSL library side data */
     CRYPTO_REF_COUNT refcnt;
-    CRYPTO_RWLOCK *refcnt_lock;  /* For the refcnt and activatecnt counters */
+    CRYPTO_RWLOCK *activatecnt_lock; /* For the activatecnt counter */
     int activatecnt;
     char *name;
     char *path;
@@ -395,7 +396,7 @@ int ossl_provider_info_add_to_store(OSSL_LIB_CTX *libctx,
 }
 
 OSSL_PROVIDER *ossl_provider_find(OSSL_LIB_CTX *libctx, const char *name,
-                                  int noconfig)
+                                  ossl_unused int noconfig)
 {
     struct provider_store_st *store = NULL;
     OSSL_PROVIDER *prov = NULL;
@@ -404,7 +405,7 @@ OSSL_PROVIDER *ossl_provider_find(OSSL_LIB_CTX *libctx, const char *name,
         OSSL_PROVIDER tmpl = { 0, };
         int i;
 
-#ifndef FIPS_MODULE
+#if !defined(FIPS_MODULE) && !defined(OPENSSL_NO_AUTOLOAD_CONFIG)
         /*
          * Make sure any providers are loaded from config before we try to find
          * them.
@@ -442,15 +443,17 @@ static OSSL_PROVIDER *provider_new(const char *name,
 
     if ((prov = OPENSSL_zalloc(sizeof(*prov))) == NULL)
         return NULL;
-#ifndef HAVE_ATOMICS
-    if ((prov->refcnt_lock = CRYPTO_THREAD_lock_new()) == NULL) {
+    if (!CRYPTO_NEW_REF(&prov->refcnt, 1)) {
         OPENSSL_free(prov);
+        return NULL;
+    }
+#ifndef HAVE_ATOMICS
+    if ((prov->activatecnt_lock = CRYPTO_THREAD_lock_new()) == NULL) {
+        ossl_provider_free(prov);
         ERR_raise(ERR_LIB_CRYPTO, ERR_R_CRYPTO_LIB);
         return NULL;
     }
 #endif
-
-    prov->refcnt = 1; /* 1 One reference to be returned */
 
     if ((prov->opbits_lock = CRYPTO_THREAD_lock_new()) == NULL
         || (prov->flag_lock = CRYPTO_THREAD_lock_new()) == NULL
@@ -475,7 +478,7 @@ int ossl_provider_up_ref(OSSL_PROVIDER *prov)
 {
     int ref = 0;
 
-    if (CRYPTO_UP_REF(&prov->refcnt, &ref, prov->refcnt_lock) <= 0)
+    if (CRYPTO_UP_REF(&prov->refcnt, &ref) <= 0)
         return 0;
 
 #ifndef FIPS_MODULE
@@ -655,6 +658,15 @@ int ossl_provider_add_to_store(OSSL_PROVIDER *prov, OSSL_PROVIDER **actualprov,
         ossl_provider_deactivate(prov, 0);
         ossl_provider_free(prov);
     }
+#ifndef FIPS_MODULE
+    else {
+        /*
+         * This can be done outside the lock. We tolerate other threads getting
+         * the wrong result briefly when creating OSSL_DECODER_CTXs.
+         */
+        ossl_decoder_cache_flush(prov->libctx);
+    }
+#endif
 
     return 1;
 
@@ -668,7 +680,7 @@ void ossl_provider_free(OSSL_PROVIDER *prov)
     if (prov != NULL) {
         int ref = 0;
 
-        CRYPTO_DOWN_REF(&prov->refcnt, &ref, prov->refcnt_lock);
+        CRYPTO_DOWN_REF(&prov->refcnt, &ref);
 
         /*
          * When the refcount drops to zero, we clean up the provider.
@@ -711,8 +723,9 @@ void ossl_provider_free(OSSL_PROVIDER *prov)
             CRYPTO_THREAD_lock_free(prov->opbits_lock);
             CRYPTO_THREAD_lock_free(prov->flag_lock);
 #ifndef HAVE_ATOMICS
-            CRYPTO_THREAD_lock_free(prov->refcnt_lock);
+            CRYPTO_THREAD_lock_free(prov->activatecnt_lock);
 #endif
+            CRYPTO_FREE_REF(&prov->refcnt);
             OPENSSL_free(prov);
         }
 #ifndef FIPS_MODULE
@@ -1066,7 +1079,7 @@ static int provider_deactivate(OSSL_PROVIDER *prov, int upcalls,
         return -1;
     }
 
-    CRYPTO_atomic_add(&prov->activatecnt, -1, &count, prov->refcnt_lock);
+    CRYPTO_atomic_add(&prov->activatecnt, -1, &count, prov->activatecnt_lock);
 #ifndef FIPS_MODULE
     if (count >= 1 && prov->ischild && upcalls) {
         /*
@@ -1100,6 +1113,14 @@ static int provider_deactivate(OSSL_PROVIDER *prov, int upcalls,
     if (lock) {
         CRYPTO_THREAD_unlock(prov->flag_lock);
         CRYPTO_THREAD_unlock(store->lock);
+        /*
+         * This can be done outside the lock. We tolerate other threads getting
+         * the wrong result briefly when creating OSSL_DECODER_CTXs.
+         */
+#ifndef FIPS_MODULE
+        if (count < 1)
+            ossl_decoder_cache_flush(prov->libctx);
+#endif
     }
 #ifndef FIPS_MODULE
     if (freeparent)
@@ -1152,7 +1173,7 @@ static int provider_activate(OSSL_PROVIDER *prov, int lock, int upcalls)
 #endif
         return -1;
     }
-    if (CRYPTO_atomic_add(&prov->activatecnt, 1, &count, prov->refcnt_lock)) {
+    if (CRYPTO_atomic_add(&prov->activatecnt, 1, &count, prov->activatecnt_lock)) {
         prov->flag_activated = 1;
 
         if (count == 1 && store != NULL) {
@@ -1162,6 +1183,14 @@ static int provider_activate(OSSL_PROVIDER *prov, int lock, int upcalls)
     if (lock) {
         CRYPTO_THREAD_unlock(prov->flag_lock);
         CRYPTO_THREAD_unlock(store->lock);
+        /*
+         * This can be done outside the lock. We tolerate other threads getting
+         * the wrong result briefly when creating OSSL_DECODER_CTXs.
+         */
+#ifndef FIPS_MODULE
+        if (count == 1)
+            ossl_decoder_cache_flush(prov->libctx);
+#endif
     }
 
     if (!ret)
@@ -1358,7 +1387,7 @@ int ossl_provider_doall_activated(OSSL_LIB_CTX *ctx,
     struct provider_store_st *store = get_provider_store(ctx);
     STACK_OF(OSSL_PROVIDER) *provs = NULL;
 
-#ifndef FIPS_MODULE
+#if !defined(FIPS_MODULE) && !defined(OPENSSL_NO_AUTOLOAD_CONFIG)
     /*
      * Make sure any providers are loaded from config before we try to use
      * them.
@@ -1399,7 +1428,7 @@ int ossl_provider_doall_activated(OSSL_LIB_CTX *ctx,
              * to avoid upping the ref count on the parent provider, which we
              * must not do while holding locks.
              */
-            if (CRYPTO_UP_REF(&prov->refcnt, &ref, prov->refcnt_lock) <= 0) {
+            if (CRYPTO_UP_REF(&prov->refcnt, &ref) <= 0) {
                 CRYPTO_THREAD_unlock(prov->flag_lock);
                 goto err_unlock;
             }
@@ -1409,8 +1438,9 @@ int ossl_provider_doall_activated(OSSL_LIB_CTX *ctx,
              * In theory this could mean the parent provider goes inactive,
              * whilst still activated in the child for a short period. That's ok.
              */
-            if (!CRYPTO_atomic_add(&prov->activatecnt, 1, &ref, prov->refcnt_lock)) {
-                CRYPTO_DOWN_REF(&prov->refcnt, &ref, prov->refcnt_lock);
+            if (!CRYPTO_atomic_add(&prov->activatecnt, 1, &ref,
+                                   prov->activatecnt_lock)) {
+                CRYPTO_DOWN_REF(&prov->refcnt, &ref);
                 CRYPTO_THREAD_unlock(prov->flag_lock);
                 goto err_unlock;
             }
@@ -1449,7 +1479,8 @@ int ossl_provider_doall_activated(OSSL_LIB_CTX *ctx,
     for (curr++; curr < max; curr++) {
         OSSL_PROVIDER *prov = sk_OSSL_PROVIDER_value(provs, curr);
 
-        if (!CRYPTO_atomic_add(&prov->activatecnt, -1, &ref, prov->refcnt_lock)) {
+        if (!CRYPTO_atomic_add(&prov->activatecnt, -1, &ref,
+                               prov->activatecnt_lock)) {
             ret = 0;
             continue;
         }
@@ -1459,7 +1490,8 @@ int ossl_provider_doall_activated(OSSL_LIB_CTX *ctx,
              * done this originally, but it involves taking a write lock so
              * we avoid it. We up the count again and do a full deactivation
              */
-            if (CRYPTO_atomic_add(&prov->activatecnt, 1, &ref, prov->refcnt_lock))
+            if (CRYPTO_atomic_add(&prov->activatecnt, 1, &ref,
+                                  prov->activatecnt_lock))
                 provider_deactivate(prov, 0, 1);
             else
                 ret = 0;
@@ -1469,7 +1501,7 @@ int ossl_provider_doall_activated(OSSL_LIB_CTX *ctx,
          * to avoid making upcalls. There should always be at least one ref
          * to the provider in the store, so this should never drop to 0.
          */
-        if (!CRYPTO_DOWN_REF(&prov->refcnt, &ref, prov->refcnt_lock)) {
+        if (!CRYPTO_DOWN_REF(&prov->refcnt, &ref)) {
             ret = 0;
             continue;
         }

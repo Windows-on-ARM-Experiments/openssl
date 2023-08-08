@@ -246,6 +246,12 @@ typedef struct ossl_qrx_pkt_st {
 
     /* The QRX which was used to receive the packet. */
     OSSL_QRX            *qrx;
+
+    /*
+     * The key epoch the packet was received with. Always 0 for non-1-RTT
+     * packets.
+     */
+    uint64_t            key_epoch;
 } OSSL_QRX_PKT;
 
 /*
@@ -303,29 +309,25 @@ int ossl_qrx_unprocessed_read_pending(OSSL_QRX *qrx);
 uint64_t ossl_qrx_get_bytes_received(OSSL_QRX *qrx, int clear);
 
 /*
- * Sets a callback which is called when a packet is received and being
- * validated before being queued in the read queue. This is called before packet
- * body decryption. pn_space is a QUIC_PN_SPACE_* value denoting which PN space
- * the PN belongs to.
+ * Sets a callback which is called when a packet is received and being validated
+ * before being queued in the read queue. This is called after packet body
+ * decryption and authentication to prevent exposing side channels. pn_space is
+ * a QUIC_PN_SPACE_* value denoting which PN space the PN belongs to.
  *
  * If this callback returns 1, processing continues normally.
  * If this callback returns 0, the packet is discarded.
  *
  * Other packets in the same datagram will still be processed where possible.
  *
- * The intended use for this function is to allow early validation of whether
- * a PN is a potential duplicate before spending CPU time decrypting the
- * packet payload.
- *
  * The callback is optional and can be unset by passing NULL for cb.
  * cb_arg is an opaque value passed to cb.
  */
-typedef int (ossl_qrx_early_validation_cb)(QUIC_PN pn, int pn_space,
-                                           void *arg);
+typedef int (ossl_qrx_late_validation_cb)(QUIC_PN pn, int pn_space,
+                                          void *arg);
 
-int ossl_qrx_set_early_validation_cb(OSSL_QRX *qrx,
-                                     ossl_qrx_early_validation_cb *cb,
-                                     void *cb_arg);
+int ossl_qrx_set_late_validation_cb(OSSL_QRX *qrx,
+                                    ossl_qrx_late_validation_cb *cb,
+                                    void *cb_arg);
 
 /*
  * Forcibly injects a URXE which has been issued by the DEMUX into the QRX for
@@ -335,6 +337,17 @@ int ossl_qrx_set_early_validation_cb(OSSL_QRX *qrx,
  * establish a new connection.
  */
 void ossl_qrx_inject_urxe(OSSL_QRX *qrx, QUIC_URXE *e);
+
+/*
+ * Decryption of 1-RTT packets must be explicitly enabled by calling this
+ * function. This is to comply with the requirement that we not process 1-RTT
+ * packets until the handshake is complete, even if we already have 1-RTT
+ * secrets. Even if a 1-RTT secret is provisioned for the QRX, incoming 1-RTT
+ * packets will be handled as though no key is available until this function is
+ * called. Calling this function will then requeue any such deferred packets for
+ * processing.
+ */
+void ossl_qrx_allow_1rtt_processing(OSSL_QRX *qrx);
 
 /*
  * Key Update (RX)
@@ -495,9 +508,11 @@ uint64_t ossl_qrx_get_key_epoch(OSSL_QRX *qrx);
  * Sets an optional callback which will be called when the key epoch changes.
  *
  * The callback is optional and can be unset by passing NULL for cb.
- * cb_arg is an opaque value passed to cb.
+ * cb_arg is an opaque value passed to cb. pn is the PN of the packet.
+ * Since key update is only supported for 1-RTT packets, the PN is always
+ * in the Application Data PN space.
 */
-typedef void (ossl_qrx_key_update_cb)(void *arg);
+typedef void (ossl_qrx_key_update_cb)(QUIC_PN pn, void *arg);
 
 int ossl_qrx_set_key_update_cb(OSSL_QRX *qrx,
                                ossl_qrx_key_update_cb *cb, void *cb_arg);

@@ -34,7 +34,7 @@ static int test_basic(void)
     if (!TEST_ptr(cctx))
         goto err;
 
-    if (!TEST_true(qtest_create_quic_objects(NULL, cctx, cert, privkey, 0,
+    if (!TEST_true(qtest_create_quic_objects(NULL, cctx, NULL, cert, privkey, 0,
                                              &qtserv, &cssl, NULL)))
         goto err;
 
@@ -104,7 +104,7 @@ static int test_unknown_frame(void)
     if (!TEST_ptr(cctx))
         goto err;
 
-    if (!TEST_true(qtest_create_quic_objects(NULL, cctx, cert, privkey, 0,
+    if (!TEST_true(qtest_create_quic_objects(NULL, cctx, NULL, cert, privkey, 0,
                                              &qtserv, &cssl, &fault)))
         goto err;
 
@@ -141,21 +141,11 @@ static int test_unknown_frame(void)
     if (!TEST_int_eq(SSL_get_error(cssl, ret), SSL_ERROR_SSL))
         goto err;
 
-#if 0
-    /*
-     * TODO(QUIC): We should expect an error on the queue after this - but we
-     * don't have it yet.
-     * Note, just raising the error in the obvious place causes
-     * SSL_handle_events() to succeed, but leave a suprious error on the stack.
-     * We need to either allow SSL_handle_events() to fail, or somehow delay the
-     * raising of the error until the SSL_read() call.
-     */
     if (!TEST_int_eq(ERR_GET_REASON(ERR_peek_error()),
-                     SSL_R_UNKNOWN_FRAME_TYPE_RECEIVED))
+                     SSL_R_QUIC_PROTOCOL_ERROR))
         goto err;
-#endif
 
-    if (!TEST_true(qtest_check_server_protocol_err(qtserv)))
+    if (!TEST_true(qtest_check_server_frame_encoding_err(qtserv)))
         goto err;
 
     testresult = 1;
@@ -194,7 +184,7 @@ static int test_no_transport_params(void)
     if (!TEST_ptr(cctx))
         goto err;
 
-    if (!TEST_true(qtest_create_quic_objects(NULL, cctx, cert, privkey, 0,
+    if (!TEST_true(qtest_create_quic_objects(NULL, cctx, NULL, cert, privkey, 0,
                                              &qtserv, &cssl, &fault)))
         goto err;
 
@@ -210,7 +200,8 @@ static int test_no_transport_params(void)
     if (!TEST_false(qtest_create_quic_connection(qtserv, cssl)))
         goto err;
 
-    if (!TEST_true(qtest_check_server_protocol_err(qtserv)))
+    if (!TEST_true(qtest_check_server_transport_err(qtserv,
+                                                    QUIC_ERR_CRYPTO_MISSING_EXT)))
         goto err;
 
     testresult = 1;
@@ -273,8 +264,9 @@ static int test_corrupted_data(int idx)
     if (!TEST_ptr(cctx))
         goto err;
 
-    if (!TEST_true(qtest_create_quic_objects(NULL, cctx, cert, privkey, 0,
-                                             &qtserv, &cssl, &fault)))
+    if (!TEST_true(qtest_create_quic_objects(NULL, cctx, NULL, cert, privkey,
+                                             QTEST_FLAG_FAKE_TIME, &qtserv,
+                                             &cssl, &fault)))
         goto err;
 
     if (idx == 0) {
@@ -315,16 +307,9 @@ static int test_corrupted_data(int idx)
      * Introduce a small delay so that the above packet has time to be detected
      * as lost. Loss detection times are based on RTT which should be very
      * fast for us since there isn't really a network. The loss delay timer is
-     * always at least 1ms though. We sleep for 100ms.
-     * TODO(QUIC): This assumes the calculated RTT will always be way less than
-     * 100ms - which it should be...but can we always guarantee this? An
-     * alternative might be to put in our own ossl_time_now() implementation for
-     * these tests and control the timer as part of the test. This approach has
-     * the added advantage that the test will behave reliably when run in a
-     * debugger. Without it may get unreliable debugging results. This would
-     * require some significant refactoring of the ssl/quic code though.
+     * always at least 1ms though. We skip forward 100ms
      */
-    OSSL_sleep(100);
+    qtest_add_time(100);
 
     /* Send rest of message */
     if (!TEST_true(ossl_quic_tserver_write(qtserv, sid, (unsigned char *)msg + 5,

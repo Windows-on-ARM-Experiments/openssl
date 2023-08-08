@@ -94,8 +94,7 @@ EOF
 # zlib-dynamic  Like "zlib", but the zlib library is expected to be a shared
 #               library and will be loaded at run-time by the OpenSSL library.
 # sctp          include SCTP support
-# enable-quic   include QUIC support (currently just for developers as the
-#               implementation is by no means complete and usable)
+# no-quic       disable QUIC support
 # no-uplink     Don't build support for UPLINK interface.
 # enable-weak-ssl-ciphers
 #               Enable weak ciphers that are disabled by default.
@@ -408,6 +407,7 @@ my @dtls = qw(dtls1 dtls1_2);
 my @disablables = (
     "acvp-tests",
     "afalgeng",
+    "apps",
     "argon2",
     "aria",
     "asan",
@@ -440,6 +440,7 @@ my @disablables = (
     "devcryptoeng",
     "dgram",
     "dh",
+    "docs",
     "dsa",
     "dso",
     "dtls",
@@ -449,6 +450,7 @@ my @disablables = (
     "ec_nistp_64_gcc_128",
     "ecdh",
     "ecdsa",
+    "ecx",
     "egd",
     "engine",
     "err",
@@ -567,7 +569,6 @@ our %disabled = ( # "what"         => "comment"
                   "ktls"                => "default",
                   "md2"                 => "default",
                   "msan"                => "default",
-                  "quic"                => "default",
                   "rc5"                 => "default",
                   "sctp"                => "default",
                   "ssl3"                => "default",
@@ -611,7 +612,7 @@ my @disable_cascades = (
     "brotli"            => [ "brotli-dynamic" ],
     "zstd"              => [ "zstd-dynamic" ],
     "des"               => [ "mdc2" ],
-    "ec"                => [ "ec2m", "ecdsa", "ecdh", "sm2", "gost" ],
+    "ec"                => [ "ec2m", "ecdsa", "ecdh", "sm2", "gost", "ecx" ],
     "dgram"             => [ "dtls", "quic", "sctp" ],
     "sock"              => [ "dgram", "tfo" ],
     "dtls"              => [ @dtls ],
@@ -621,11 +622,11 @@ my @disable_cascades = (
     "tls"               => [ @tls ],
     sub { 0 == scalar grep { !$disabled{$_} } @tls }
                         => [ "tls" ],
+    "tls1_3"            => [ "quic" ],
 
     "crypto-mdebug"     => [ "crypto-mdebug-backtrace" ],
 
-    # If no modules, then no dynamic engines either
-    "module"            => [ "dynamic-engine" ],
+    "module"            => [ "dynamic-engine", "fips" ],
 
     # Without shared libraries, dynamic engines aren't possible.
     # This is due to them having to link with libcrypto and register features
@@ -642,8 +643,6 @@ my @disable_cascades = (
     # Without position independent code, there can be no shared libraries
     # or modules.
     "pic"               => [ "shared", "module" ],
-
-    "module"            => [ "fips", "dso" ],
 
     "engine"            => [ "dynamic-engine", grep(/eng$/, @disablables) ],
     "dynamic-engine"    => [ "loadereng" ],

@@ -130,6 +130,16 @@ int ossl_qtx_calculate_plaintext_payload_len(OSSL_QTX *qtx, uint32_t enc_level,
                                              size_t ciphertext_len,
                                              size_t *plaintext_len);
 
+/*
+ * Given the value plaintext_len represented a plaintext packet payload length
+ * in bytes, determines how many ciphertext bytes it will encrypt to. The value
+ * output does not include packet headers. Returns 0 if the specified EL is not
+ * provisioned. The result is written to *ciphertext_len.
+ */
+int ossl_qtx_calculate_ciphertext_payload_len(OSSL_QTX *qtx, uint32_t enc_level,
+                                              size_t plaintext_len,
+                                              size_t *ciphertext_len);
+
 uint32_t ossl_qrl_get_suite_cipher_tag_len(uint32_t suite_id);
 
 
@@ -361,6 +371,12 @@ uint64_t ossl_qtx_get_cur_epoch_pkt_count(OSSL_QTX *qtx, uint32_t enc_level);
  * error condition to a peer is a Stateless Reset packet.
  */
 uint64_t ossl_qtx_get_max_epoch_pkt_count(OSSL_QTX *qtx, uint32_t enc_level);
+
+/*
+ * Get the 1-RTT EL key epoch number for the QTX. This is intended for
+ * diagnostic purposes. Returns 0 if 1-RTT EL is not provisioned yet.
+ */
+uint64_t ossl_qtx_get_key_epoch(OSSL_QTX *qtx);
 
 # endif
 

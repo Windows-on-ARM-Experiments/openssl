@@ -355,7 +355,7 @@ static int frame_path_challenge(BIO *bio, PACKET *pkt)
     if (!ossl_quic_wire_decode_frame_path_challenge(pkt, &data))
         return 0;
 
-    BIO_printf(bio, "    Data: %016lx\n", data);
+    BIO_printf(bio, "    Data: %016llx\n", (unsigned long long)data);
 
     return 1;
 }
@@ -367,7 +367,7 @@ static int frame_path_response(BIO *bio, PACKET *pkt)
     if (!ossl_quic_wire_decode_frame_path_response(pkt, &data))
         return 0;
 
-    BIO_printf(bio, "    Data: %016lx\n", data);
+    BIO_printf(bio, "    Data: %016llx\n", (unsigned long long)data);
 
     return 1;
 }
@@ -392,7 +392,7 @@ static int trace_frame_data(BIO *bio, PACKET *pkt)
 {
     uint64_t frame_type;
 
-    if (!ossl_quic_wire_peek_frame_header(pkt, &frame_type))
+    if (!ossl_quic_wire_peek_frame_header(pkt, &frame_type, NULL))
         return 0;
 
     switch (frame_type) {
@@ -562,7 +562,7 @@ int ossl_quic_trace(int write_p, int version, int content_type,
     case SSL3_RT_QUIC_DATAGRAM:
         BIO_puts(bio, write_p ? "Sent" : "Received");
         /*
-         * Unfortunately there is no way of receiving auxilliary information
+         * Unfortunately there is no way of receiving auxiliary information
          * about the datagram through the msg_callback API such as the peer
          * address
          */
@@ -578,8 +578,8 @@ int ossl_quic_trace(int write_p, int version, int content_type,
                 return 0;
             /* Decode the packet header */
             /*
-             * TODO(QUIC): We need to query the short connection id len here,
-             *             e.g. via some API SSL_get_short_conn_id_len()
+             * TODO(QUIC SERVER): We need to query the short connection id len
+             * here, e.g. via some API SSL_get_short_conn_id_len()
              */
             if (ossl_quic_wire_decode_pkt_hdr(&pkt, 0, 0, 1, &hdr, NULL) != 1)
                 return 0;
@@ -588,7 +588,8 @@ int ossl_quic_trace(int write_p, int version, int content_type,
             BIO_puts(bio, " Packet\n");
             BIO_printf(bio, "  Packet Type: %s\n", packet_type(hdr.type));
             if (hdr.type != QUIC_PKT_TYPE_1RTT)
-                BIO_printf(bio, "  Version: 0x%08x\n", hdr.version);
+                BIO_printf(bio, "  Version: 0x%08lx\n",
+                           (unsigned long)hdr.version);
             BIO_puts(bio, "  Destination Conn Id: ");
             put_conn_id(bio, &hdr.dst_conn_id);
             BIO_puts(bio, "\n");
