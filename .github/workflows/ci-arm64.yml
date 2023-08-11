@@ -47,7 +47,7 @@ jobs:
         perl Configure VC-WIN64-ARM
         nmake
         nmake test
-        .\apps\openssl.exe speed 2> benchmark.txt
+        .github\workflows\scripts\benchmark.bat 2> benchmark.txt
         type benchmark.txt
 
   build-openssl-windows-arm64-clangcl:
@@ -70,7 +70,7 @@ jobs:
         perl Configure VC-CLANG-WIN64-CLANGASM-ARM
         nmake
         nmake test
-        .\apps\openssl.exe speed 2> benchmark.txt
+        .github\workflows\scripts\benchmark.bat 2> benchmark.txt
         type benchmark.txt
 
   build-openssl-linux-aarch64-gcc:
@@ -88,5 +88,5 @@ jobs:
         ./Configure
         make
         make test
-        LD_LIBRARY_PATH=$(pwd) apps/openssl speed > benchmark.txt 2>&1
+        .github/workflows/scripts/benchmark.sh > benchmark.txt 2>&1
         cat benchmark.txt
