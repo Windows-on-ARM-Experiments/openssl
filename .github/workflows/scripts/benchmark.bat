@@ -1,5 +1,5 @@
-call .\apps\openssl.exe speed
+.\apps\openssl.exe speed
 
 for %%i in (sm3 sm4 aes-128-gcm aes-192-gcm aes-256-gcm) do (
-    call .\apps\openssl.exe speed -evp %%i
+    .\apps\openssl.exe speed -evp %%i
 )

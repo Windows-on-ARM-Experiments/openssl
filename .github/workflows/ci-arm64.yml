@@ -47,7 +47,7 @@ jobs:
         perl Configure VC-WIN64-ARM
         nmake
         nmake test
-        .github\workflows\scripts\benchmark.bat 2> benchmark.txt
+        call .github\workflows\scripts\benchmark.bat 2> benchmark.txt
         type benchmark.txt
 
   build-openssl-windows-arm64-clangcl:
@@ -70,7 +70,7 @@ jobs:
         perl Configure VC-CLANG-WIN64-CLANGASM-ARM
         nmake
         nmake test
-        .github\workflows\scripts\benchmark.bat 2> benchmark.txt
+        call .github\workflows\scripts\benchmark.bat 2> benchmark.txt
         type benchmark.txt
 
   build-openssl-linux-aarch64-gcc:
