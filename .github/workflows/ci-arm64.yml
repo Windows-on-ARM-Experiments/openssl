@@ -42,7 +42,7 @@ jobs:
       run: |
         echo on
         git fetch origin dev
-        git checkout dev -- .github/workflows/scripts
+        git checkout origin/dev -- .github/workflows/scripts
         call "%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" arm64
         set VSCMD_DEBUG=3
         set PATH=%PATH%;%VCINSTALLDIR%\Tools\Llvm\ARM64\bin
@@ -67,7 +67,7 @@ jobs:
       run: |
         echo on
         git fetch origin dev
-        git checkout dev -- .github/workflows/scripts
+        git checkout origin/dev -- .github/workflows/scripts
         call "%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" arm64
         set VSCMD_DEBUG=3
         set PATH=%PATH%;%VCINSTALLDIR%\Tools\Llvm\ARM64\bin
@@ -90,7 +90,7 @@ jobs:
     - name: Build OpenSSL on Linux AArch64 with GCC
       run: |
         git fetch origin dev
-        git checkout dev -- .github/workflows/scripts
+        git checkout origin/dev -- .github/workflows/scripts
         ./Configure
         make
         make test
