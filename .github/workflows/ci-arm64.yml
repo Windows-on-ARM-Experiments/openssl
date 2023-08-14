@@ -64,6 +64,14 @@ jobs:
         call .github\workflows\scripts\benchmark.bat 2> benchmark.txt
         type benchmark.txt
 
+    - name: Archive build-openssl-windows-arm64-msvc.zip
+      uses: actions/upload-artifact@v3
+      if: ${{ inputs.benchmark_snapshot }}
+      with:
+        name: build-openssl-windows-arm64-msvc.zip
+        path: benchmark.txt
+        retention-days: 1
+
   build-openssl-windows-arm64-clangcl:
     if: ${{ inputs.openssl_windows_arm64_clangcl_build }}
 
@@ -91,6 +99,14 @@ jobs:
         call .github\workflows\scripts\benchmark.bat 2> benchmark.txt
         type benchmark.txt
 
+    - name: Archive build-openssl-windows-arm64-clangcl.zip
+      uses: actions/upload-artifact@v3
+      if: ${{ inputs.benchmark_snapshot }}
+      with:
+        name: build-openssl-windows-arm64-clangcl.zip
+        path: benchmark.txt
+        retention-days: 1
+
   build-openssl-linux-aarch64-gcc:
     if: ${{ inputs.openssl_linux_aarch64_gcc_build }}
 
@@ -113,10 +129,10 @@ jobs:
         .github/workflows/scripts/benchmark.sh > benchmark.txt 2>&1
         cat benchmark.txt
 
-    - name: Archive openssl-linux-aarch64-gcc-benchmark.txt
+    - name: Archive openssl-linux-aarch64-gcc-benchmark.zip
       uses: actions/upload-artifact@v3
       if: ${{ inputs.benchmark_snapshot }}
       with:
-        name: openssl-linux-aarch64-gcc-benchmark.txt
+        name: openssl-linux-aarch64-gcc-benchmark.zip
         path: benchmark.txt
         retention-days: 1
