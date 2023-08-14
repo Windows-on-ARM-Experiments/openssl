@@ -38,7 +38,7 @@ on:
 
 jobs:
   build-openssl-windows-arm64-msvc:
-    if: ${{ openssl_windows_arm64_msvc_build }}
+    if: ${{ inputs.openssl_windows_arm64_msvc_build }}
 
     runs-on: [self-hosted, Windows, ARM64, GCC, D2ps_v5]
     timeout-minutes: 600
@@ -65,7 +65,7 @@ jobs:
         type benchmark.txt
 
   build-openssl-windows-arm64-clangcl:
-    if: ${{ openssl_windows_arm64_clangcl_build }}
+    if: ${{ inputs.openssl_windows_arm64_clangcl_build }}
 
     runs-on: [self-hosted, Windows, ARM64, GCC, D2ps_v5]
     timeout-minutes: 600
@@ -92,7 +92,7 @@ jobs:
         type benchmark.txt
 
   build-openssl-linux-aarch64-gcc:
-    if: ${{ openssl_linux_aarch64_gcc_build }}
+    if: ${{ inputs.openssl_linux_aarch64_gcc_build }}
 
     runs-on: [self-hosted, Linux, ARM64, GCC, D2ps_v5]
     timeout-minutes: 600
@@ -115,7 +115,7 @@ jobs:
 
     - name: Archive openssl-linux-aarch64-gcc-benchmark.txt
       uses: actions/upload-artifact@v3
-      if: ${{ benchmark_snapshot }}
+      if: ${{ inputs.benchmark_snapshot }}
       with:
         name: openssl-linux-aarch64-gcc-benchmark.txt
         path: benchmark.txt
