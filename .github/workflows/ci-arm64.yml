@@ -10,14 +10,24 @@ on:
         required: false
         type: string
       openssl_windows_arm64_msvc_build:
-        description: 'OpenSSL Windows Arm64 MSVC'
+        description: 'OpenSSL Windows Arm64 MSVC build'
         required: false
         default: true
         type: boolean
       openssl_windows_arm64_clangcl_build:
-        description: 'OpenSSL Windows Arm64 clang-cl'
+        description: 'OpenSSL Windows Arm64 clang-cl build'
         required: false
         default: true
+        type: boolean
+      openssl_linux_aarch64_gcc_build:
+        description: 'OpenSSL Linux AArch64 gcc build'
+        required: false
+        default: true
+        type: boolean
+      benchmark_snapshot:
+        description: 'Create benchmark snapshot'
+        required: false
+        default: false
         type: boolean
   workflow_call:
     inputs:
@@ -28,6 +38,8 @@ on:
 
 jobs:
   build-openssl-windows-arm64-msvc:
+    if: ${{ openssl_windows_arm64_msvc_build }}
+
     runs-on: [self-hosted, Windows, ARM64, GCC, D2ps_v5]
     timeout-minutes: 600
 
@@ -53,6 +65,8 @@ jobs:
         type benchmark.txt
 
   build-openssl-windows-arm64-clangcl:
+    if: ${{ openssl_windows_arm64_clangcl_build }}
+
     runs-on: [self-hosted, Windows, ARM64, GCC, D2ps_v5]
     timeout-minutes: 600
 
@@ -78,6 +92,8 @@ jobs:
         type benchmark.txt
 
   build-openssl-linux-aarch64-gcc:
+    if: ${{ openssl_linux_aarch64_gcc_build }}
+
     runs-on: [self-hosted, Linux, ARM64, GCC, D2ps_v5]
     timeout-minutes: 600
 
@@ -96,3 +112,11 @@ jobs:
         make test
         .github/workflows/scripts/benchmark.sh > benchmark.txt 2>&1
         cat benchmark.txt
+
+    - name: Archive openssl-linux-aarch64-gcc-benchmark.txt
+      uses: actions/upload-artifact@v3
+      if: ${{ benchmark_snapshot }}
+      with:
+        name: openssl-linux-aarch64-gcc-benchmark.txt
+        path: benchmark.txt
+        retention-days: 1
