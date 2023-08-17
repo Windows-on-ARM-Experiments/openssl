@@ -70,7 +70,7 @@ jobs:
       with:
         name: build-openssl-windows-arm64-msvc.zip
         path: benchmark.txt
-        retention-days: 1
+        retention-days: 3
 
   build-openssl-windows-arm64-clangcl:
     if: ${{ inputs.openssl_windows_arm64_clangcl_build }}
@@ -105,7 +105,7 @@ jobs:
       with:
         name: build-openssl-windows-arm64-clangcl.zip
         path: benchmark.txt
-        retention-days: 1
+        retention-days: 3
 
   build-openssl-linux-aarch64-gcc:
     if: ${{ inputs.openssl_linux_aarch64_gcc_build }}
@@ -135,4 +135,4 @@ jobs:
       with:
         name: openssl-linux-aarch64-gcc-benchmark.zip
         path: benchmark.txt
-        retention-days: 1
+        retention-days: 3
