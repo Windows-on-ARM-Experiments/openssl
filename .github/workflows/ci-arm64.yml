@@ -136,3 +136,40 @@ jobs:
         name: openssl-linux-aarch64-gcc-benchmark.zip
         path: benchmark.txt
         retention-days: 3
+
+  create_benchmark_snapshot:
+    if: ${{ inputs.benchmark_snapshot }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Git checkout
+      uses: actions/checkout@v3
+      with:
+        branch: ${{ github.event.repository.default_branch }}
+        path: .github/workflows
+
+#    - uses: actions/download-artifact@v3
+#    with:
+#      name: openssl-linux-aarch64-gcc-benchmark.zip
+
+#    - uses: actions/download-artifact@v3
+#    with:
+#      name: build-openssl-windows-arm64-clangcl.zip
+
+    - name: Create PR for a benchmark snapshot
+      run: |
+        touch.exe .github/test.txt
+        git checkout -b benchmark_snapshot
+        git add .github/test.txt
+        git commit -am "-add a benchmark snapshot"
+        git push origin benchmark_snapshot
+        PR_RESPONSE=$(curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
+        -d '{
+          "title": "Add benchmark snapshot",
+          "body": "",
+          "head": "benchmark_snapshot",
+          "base": "${{ github.event.repository.default_branch }}"
+        }' \
+        https://api.github.com/repos/$GITHUB_REPOSITORY/pulls)
+        echo "$PR_RESPONSE"
