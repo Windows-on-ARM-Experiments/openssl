@@ -159,7 +159,7 @@ jobs:
 
     - name: Create PR for a benchmark snapshot
       run: |
-        touch.exe .github/test.txt
+        touch .github/test.txt
         git checkout -b benchmark_snapshot
         git add .github/test.txt
         git commit -am "-add a benchmark snapshot"
