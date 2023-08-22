@@ -158,6 +158,8 @@ jobs:
 
     - name: Create PR for a benchmark snapshot
       run: |
+        git config --global user.name "$GITHUB_ACTOR"
+        git config --global user.email "$GITHUB_ACTOR@users.noreply.github.com"
         touch .github/test.txt
         git checkout -b benchmark_snapshot
         git add .github/test.txt
