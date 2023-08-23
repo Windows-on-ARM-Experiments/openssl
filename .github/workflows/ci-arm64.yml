@@ -164,7 +164,7 @@ jobs:
         git checkout -b benchmark_snapshot
         git add .github/test.txt
         git commit -am "-add a benchmark snapshot"
-        git push origin benchmark_snapshot
+        git push --force origin benchmark_snapshot
         PR_RESPONSE=$(curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
           -d '{ \
             "title": "Add benchmark snapshot", \
