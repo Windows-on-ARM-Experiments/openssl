@@ -165,7 +165,7 @@ jobs:
         git add .github/test.txt
         git commit -am "* add a benchmark snapshot"
         git push --force origin benchmark_snapshot
-        PR_RESPONSE=$(curl -X POST -H "Authorization: Bearer $GITHUB_TOKEN" \
+        PR_RESPONSE=$(curl -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
           -d '{ \
             "title": "Add benchmark snapshot", \
             "body": "", \
