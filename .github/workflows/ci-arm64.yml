@@ -166,11 +166,11 @@ jobs:
         git commit -am "-add a benchmark snapshot"
         git push origin benchmark_snapshot
         PR_RESPONSE=$(curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
-        -d '{
-          "title": "Add benchmark snapshot",
-          "body": "",
-          "head": "benchmark_snapshot",
-          "base": "${{ github.event.repository.default_branch }}"
-        }' \
-        https://api.github.com/repos/$GITHUB_REPOSITORY/pulls)
+          -d '{ \
+            "title": "Add benchmark snapshot", \
+            "body": "", \
+            "head": "benchmark_snapshot", \
+            "base": "${{ github.event.repository.default_branch }}" \
+          }' \
+          https://api.github.com/repos/$GITHUB_REPOSITORY/pulls)
         echo "$PR_RESPONSE"
