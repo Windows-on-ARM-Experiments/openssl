@@ -137,9 +137,9 @@ jobs:
         path: benchmark_aarch64_gcc.txt
         retention-days: 3
 
-  create_benchmark_snapshot:
+  create-benchmark-snapshot:
     if: ${{ inputs.benchmark_snapshot }}
-    needs: [build-openssl-windows-arm64-clangcl, build-openssl-linux-aarch64-gcc]
+    needs: [build-openssl-linux-aarch64-gcc]
 
     runs-on: ubuntu-latest
 
