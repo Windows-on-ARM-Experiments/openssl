@@ -169,7 +169,7 @@ jobs:
         git status
         git restore .github/workflows/scripts
         git fetch origin assets
-        git checkout origin/assets
+        git checkout assets
         git add $benchmark_asset
         git status
         git commit -am "* add a benchmark image"
