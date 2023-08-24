@@ -139,7 +139,7 @@ jobs:
 
   create-benchmark-snapshot:
     if: ${{ inputs.benchmark_snapshot }}
-    needs: [build-openssl-linux-aarch64-gcc]
+#    needs: [build-openssl-linux-aarch64-gcc]
 
     runs-on: ubuntu-latest
 
@@ -147,10 +147,10 @@ jobs:
     - name: Git checkout
       uses: actions/checkout@v3
 
-    - name: Dowload openssl_linux_aarch64_gcc_benchmark.zip
-      uses: actions/download-artifact@v3
-      with:
-        name: openssl_linux_aarch64_gcc_benchmark.zip
+#    - name: Dowload openssl_linux_aarch64_gcc_benchmark.zip
+#      uses: actions/download-artifact@v3
+#      with:
+#        name: openssl_linux_aarch64_gcc_benchmark.zip
 
 #    - uses: actions/download-artifact@v3
 #    with:
@@ -174,7 +174,7 @@ jobs:
         git status
         git commit -am "* add a benchmark image"
         git push
-        git checkout dev
+        git checkout ${{ github.event.repository.default_branch }} --
         git checkout -b benchmark_snapshot
         git add .github/workflows/data
         git commit -am "* add a benchmark snapshot"
