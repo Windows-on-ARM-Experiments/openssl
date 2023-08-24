@@ -158,7 +158,6 @@ jobs:
 
     - name: Create PR for a benchmark snapshot
       run: |
-        set -x
         git config --global user.name "$GITHUB_ACTOR"
         git config --global user.email "$GITHUB_ACTOR@users.noreply.github.com"
         git fetch origin ${{ github.event.repository.default_branch }}
@@ -167,9 +166,11 @@ jobs:
         benchmark_asset=$(date +".assets/benchmark_snapshot_%Y-%m-%d_%H_%M_%S.png")
         [ ! -d .assets ] && mkdir .assets
         mv benchmark_snapshot.png $benchmark_asset
+        git status
         git restore .github/workflows/scripts
         git checkout assets
         git add $benchmark_asset
+        git status
         git commit -am "* add a benchmark image"
         git push
         git checkout -b benchmark_snapshot
