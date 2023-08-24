@@ -168,11 +168,13 @@ jobs:
         mv benchmark_snapshot.png $benchmark_asset
         git status
         git restore .github/workflows/scripts
-        git checkout assets
+        git fetch origin assets
+        git checkout origin/assets
         git add $benchmark_asset
         git status
         git commit -am "* add a benchmark image"
         git push
+        git checkout dev
         git checkout -b benchmark_snapshot
         git add .github/workflows/data
         git commit -am "* add a benchmark snapshot"
