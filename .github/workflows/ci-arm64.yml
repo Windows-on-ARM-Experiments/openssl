@@ -97,7 +97,7 @@ jobs:
         nmake
         nmake test
         call .github\workflows\scripts\benchmark.bat 2> benchmark_arm64_clangcl.txt
-        type benchmark_clangcl.txt
+        type benchmark_arm64_clangcl.txt
 
     - name: Archive openssl_windows_arm64_clangcl_benchmark.zip
       uses: actions/upload-artifact@v3
