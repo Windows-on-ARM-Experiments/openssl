@@ -186,5 +186,5 @@ jobs:
             "head": "benchmark_snapshot",
             "base": "${{ github.event.repository.default_branch }}"
           }' \
-          https://api.github.com/repos/$GITHUB_REPOSITORY/pull/7)
+          https://api.github.com/repos/$GITHUB_REPOSITORY/pulls/7)
         echo "$PR_RESPONSE"
