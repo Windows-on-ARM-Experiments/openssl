@@ -152,10 +152,10 @@ jobs:
       with:
         name: openssl_linux_aarch64_gcc_benchmark.zip
 
-    - name: Dowload build-openssl-windows-arm64-clangcl.zip
+    - name: Dowload openssl_windows_arm64_clangcl.zip
       uses: actions/download-artifact@v3
       with:
-        name: build-openssl-windows-arm64-clangcl.zip
+        name: openssl_windows_arm64_clangcl.zip
 
     - name: Create PR for a benchmark snapshot
       run: |
