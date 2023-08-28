@@ -16,6 +16,7 @@
 #if defined(OPENSSL_THREADS) && !defined(CRYPTO_TDEBUG)
 # include "../threadstest.h"
 #endif
+#include "internal/quic_ssl.h"
 #include "internal/quic_wire_pkt.h"
 #include "internal/quic_record_tx.h"
 #include "internal/quic_error.h"
@@ -145,7 +146,7 @@ int qtest_create_quic_objects(OSSL_LIB_CTX *libctx, SSL_CTX *clientctx,
                                          (flags & QTEST_FLAG_BLOCK) != 0 ? 1 : 0)))
         goto err;
 
-    if (!TEST_true(SSL_set_initial_peer_addr(*cssl, peeraddr)))
+    if (!TEST_true(SSL_set1_initial_peer_addr(*cssl, peeraddr)))
         goto err;
 
     if (fault != NULL) {
@@ -172,7 +173,10 @@ int qtest_create_quic_objects(OSSL_LIB_CTX *libctx, SSL_CTX *clientctx,
     tserver_args.ctx = serverctx;
     if ((flags & QTEST_FLAG_FAKE_TIME) != 0) {
         fake_now = ossl_time_zero();
+        /* zero time can have a special meaning, bump it */
+        qtest_add_time(1);
         tserver_args.now_cb = fake_now_cb;
+        (void)ossl_quic_conn_set_override_now_cb(*cssl, fake_now_cb, NULL);
     }
 
     if (!TEST_ptr(*qtserv = ossl_quic_tserver_new(&tserver_args, certfile,
@@ -251,7 +255,7 @@ static void run_server_thread(void)
 
 int qtest_create_quic_connection(QUIC_TSERVER *qtserv, SSL *clientssl)
 {
-    int retc = -1, rets = 0, err, abortctr = 0, ret = 0;
+    int retc = -1, rets = 0, abortctr = 0, ret = 0;
     int clienterr = 0, servererr = 0;
 #if defined(OPENSSL_THREADS) && !defined(CRYPTO_TDEBUG)
     /*
@@ -284,17 +288,19 @@ int qtest_create_quic_connection(QUIC_TSERVER *qtserv, SSL *clientssl)
     }
 
     do {
-        err = SSL_ERROR_WANT_WRITE;
-        while (!clienterr && retc <= 0 && err == SSL_ERROR_WANT_WRITE) {
-            retc = SSL_connect(clientssl);
-            if (retc <= 0)
-                err = SSL_get_error(clientssl, retc);
-        }
+        if (!clienterr && retc <= 0) {
+            int err;
 
-        if (!clienterr && retc <= 0 && err != SSL_ERROR_WANT_READ) {
-            TEST_info("SSL_connect() failed %d, %d", retc, err);
-            TEST_openssl_errors();
-            clienterr = 1;
+            retc = SSL_connect(clientssl);
+            if (retc <= 0) {
+                err = SSL_get_error(clientssl, retc);
+
+                if (err != SSL_ERROR_WANT_READ && err != SSL_ERROR_WANT_WRITE) {
+                    TEST_info("SSL_connect() failed %d, %d", retc, err);
+                    TEST_openssl_errors();
+                    clienterr = 1;
+                }
+            }
         }
 
         /*

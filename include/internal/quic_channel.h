@@ -149,6 +149,21 @@ typedef struct quic_terminate_cause_st {
      */
     uint64_t                        frame_type;
 
+    /*
+     * Optional reason string. When calling ossl_quic_channel_local_close, if a
+     * reason string pointer is passed, it is copied and stored inside
+     * QUIC_CHANNEL for the remainder of the lifetime of the channel object.
+     * Thus the string pointed to by this value, if non-NULL, is valid for the
+     * lifetime of the QUIC_CHANNEL object.
+     */
+    const char                      *reason;
+
+    /*
+     * Length of reason in bytes. The reason is supposed to contain a UTF-8
+     * string but may be arbitrary data if the reason came from the network.
+     */
+    size_t                          reason_len;
+
     /* Is this error code in the transport (0) or application (1) space? */
     unsigned int                    app : 1;
 
@@ -196,7 +211,8 @@ int ossl_quic_channel_set_mutator(QUIC_CHANNEL *ch,
 int ossl_quic_channel_start(QUIC_CHANNEL *ch);
 
 /* Start a locally initiated connection shutdown. */
-void ossl_quic_channel_local_close(QUIC_CHANNEL *ch, uint64_t app_error_code);
+void ossl_quic_channel_local_close(QUIC_CHANNEL *ch, uint64_t app_error_code,
+                                   const char *app_reason);
 
 /*
  * Called when the handshake is confirmed.
@@ -383,6 +399,23 @@ int ossl_quic_channel_ping(QUIC_CHANNEL *ch);
 
 /* For testing use. While enabled, ticking is not performed. */
 void ossl_quic_channel_set_inhibit_tick(QUIC_CHANNEL *ch, int inhibit);
+
+/*
+ * These queries exist for diagnostic purposes only. They may roll over.
+ * Do not rely on them for non-testing purposes.
+ */
+uint16_t ossl_quic_channel_get_diag_num_rx_ack(QUIC_CHANNEL *ch);
+
+/*
+ * Diagnostic use only. Gets the current local CID.
+ */
+void ossl_quic_channel_get_diag_local_cid(QUIC_CHANNEL *ch, QUIC_CONN_ID *cid);
+
+/*
+ * Returns 1 if stream count flow control allows us to create a new
+ * locally-initiated stream.
+ */
+int ossl_quic_channel_is_new_local_stream_admissible(QUIC_CHANNEL *ch, int is_uni);
 
 # endif
 

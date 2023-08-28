@@ -9,7 +9,7 @@
 
 /*
  * NB: Changes to this file should also be reflected in
- * doc/man7/ossl-guide-quic-client-block.pod
+ * doc/man7/ossl-guide-quic-multi-stream.pod
  */
 
 #include <string.h>
@@ -115,21 +115,24 @@ static BIO *create_socket_bio(const char *hostname, const char *port,
 #endif
 
 /*
- * Simple application to send a basic HTTP/1.0 request to a server and
- * print the response on the screen. Note that HTTP/1.0 over QUIC is
- * non-standard and will not typically be supported by real world servers. This
- * is for demonstration purposes only.
+ * Simple application to send basic HTTP/1.0 requests to a server and print the
+ * response on the screen. Note that HTTP/1.0 over QUIC is not a real protocol
+ * and will not be supported by real world servers. This is for demonstration
+ * purposes only.
  */
 int main(void)
 {
     SSL_CTX *ctx = NULL;
     SSL *ssl = NULL;
+    SSL *stream1 = NULL, *stream2 = NULL, *stream3 = NULL;
     BIO *bio = NULL;
     int res = EXIT_FAILURE;
     int ret;
     unsigned char alpn[] = { 8, 'h', 't', 't', 'p', '/', '1', '.', '0' };
-    const char *request =
-        "GET / HTTP/1.0\r\nConnection: close\r\nHost: "HOSTNAME"\r\n\r\n";
+    const char *request1 =
+        "GET /request1.html HTTP/1.0\r\nConnection: close\r\nHost: "HOSTNAME"\r\n\r\n";
+    const char *request2 =
+        "GET /request2.html HTTP/1.0\r\nConnection: close\r\nHost: "HOSTNAME"\r\n\r\n";
     size_t written, readbytes;
     char buf[160];
     BIO_ADDR *peer_addr = NULL;
@@ -162,6 +165,15 @@ int main(void)
     ssl = SSL_new(ctx);
     if (ssl == NULL) {
         printf("Failed to create the SSL object\n");
+        goto end;
+    }
+
+    /*
+     * We will use multiple streams so we will disable the default stream mode.
+     * This is not a requirement for using multiple streams but is recommended.
+     */
+    if (!SSL_set_default_stream_mode(ssl, SSL_DEFAULT_STREAM_MODE_NONE)) {
+        printf("Failed to disable the default stream mode\n");
         goto end;
     }
 
@@ -203,7 +215,7 @@ int main(void)
     }
 
     /* Set the IP address of the remote peer */
-    if (!SSL_set1_initial_peer_addr(ssl, peer_addr)) {
+    if (!SSL_set_initial_peer_addr(ssl, peer_addr)) {
         printf("Failed to set the initial peer address\n");
         goto end;
     }
@@ -220,17 +232,42 @@ int main(void)
         goto end;
     }
 
-    /* Write an HTTP GET request to the peer */
-    if (!SSL_write_ex(ssl, request, strlen(request), &written)) {
-        printf("Failed to write HTTP request\n");
+    /*
+     * We create two new client initiated streams. The first will be
+     * bi-directional, and the second will be uni-directional.
+     */
+    stream1 = SSL_new_stream(ssl, 0);
+    stream2 = SSL_new_stream(ssl, SSL_STREAM_FLAG_UNI);
+    if (stream1 == NULL || stream2 == NULL) {
+        printf("Failed to create streams\n");
+        goto end;
+    }
+
+    /* Write an HTTP GET request on each of our streams to the peer */
+    if (!SSL_write_ex(stream1, request1, strlen(request1), &written)) {
+        printf("Failed to write HTTP request on stream 1\n");
+        goto end;
+    }
+
+    if (!SSL_write_ex(stream2, request2, strlen(request2), &written)) {
+        printf("Failed to write HTTP request on stream 2\n");
         goto end;
     }
 
     /*
-     * Get up to sizeof(buf) bytes of the response. We keep reading until the
-     * server closes the connection.
+     * In this demo we read all the data from one stream before reading all the
+     * data from the next stream for simplicity. In practice there is no need to
+     * do this. We can interleave IO on the different streams if we wish, or
+     * manage the streams entirely separately on different threads.
      */
-    while (SSL_read_ex(ssl, buf, sizeof(buf), &readbytes)) {
+
+    printf("Stream 1 data:\n");
+    /*
+     * Get up to sizeof(buf) bytes of the response from stream 1 (which is a
+     * bidirectional stream). We keep reading until the server closes the
+     * connection.
+     */
+    while (SSL_read_ex(stream1, buf, sizeof(buf), &readbytes)) {
         /*
         * OpenSSL does not guarantee that the returned data is a string or
         * that it is NUL terminated so we use fwrite() to write the exact
@@ -251,7 +288,7 @@ int main(void)
      * QUIC terms this means that the peer has sent FIN on the stream to
      * indicate that no further data will be sent.
      */
-    switch (SSL_get_error(ssl, 0)) {
+    switch (SSL_get_error(stream1, 0)) {
     case SSL_ERROR_ZERO_RETURN:
         /* Normal completion of the stream */
         break;
@@ -261,7 +298,7 @@ int main(void)
          * Some stream fatal error occurred. This could be because of a stream
          * reset - or some failure occurred on the underlying connection.
          */
-        switch (SSL_get_stream_read_state(ssl)) {
+        switch (SSL_get_stream_read_state(stream1)) {
         case SSL_STREAM_STATE_RESET_REMOTE:
             printf("Stream reset occurred\n");
             /* The stream has been reset but the connection is still healthy. */
@@ -280,6 +317,60 @@ int main(void)
 
     default:
         /* Some other unexpected error occurred */
+        printf ("Failed reading remaining data\n");
+        break;
+    }
+
+    /*
+     * In our hypothetical HTTP/1.0 over QUIC protocol that we are using we
+     * assume that the server will respond with a server initiated stream
+     * containing the data requested in our uni-directional stream. This doesn't
+     * really make sense to do in a real protocol, but its just for
+     * demonstration purposes.
+     *
+     * We're using blocking mode so this will block until a stream becomes
+     * available. We could override this behaviour if we wanted to by setting
+     * the SSL_ACCEPT_STREAM_NO_BLOCK flag in the second argument below.
+     */
+    stream3 = SSL_accept_stream(ssl, 0);
+    if (stream3 == NULL) {
+        printf("Failed to accept a new stream\n");
+        goto end;
+    }
+
+    printf("Stream 3 data:\n");
+    /*
+     * Read the data from stream 3 like we did for stream 1 above. Note that
+     * stream 2 was uni-directional so there is no data to be read from that
+     * one.
+     */
+    while (SSL_read_ex(stream3, buf, sizeof(buf), &readbytes))
+        fwrite(buf, 1, readbytes, stdout);
+    printf("\n");
+
+    /* Check for errors on the stream */
+    switch (SSL_get_error(stream3, 0)) {
+    case SSL_ERROR_ZERO_RETURN:
+        /* Normal completion of the stream */
+        break;
+
+    case SSL_ERROR_SSL:
+        switch (SSL_get_stream_read_state(stream3)) {
+        case SSL_STREAM_STATE_RESET_REMOTE:
+            printf("Stream reset occurred\n");
+            break;
+
+        case SSL_STREAM_STATE_CONN_CLOSED:
+            printf("Connection closed\n");
+            goto end;
+
+        default:
+            printf("Unknown stream failure\n");
+            break;
+        }
+        break;
+
+    default:
         printf ("Failed reading remaining data\n");
         break;
     }
@@ -313,6 +404,9 @@ int main(void)
      * via SSL_set_bio(). The BIO will be freed when we free the SSL object.
      */
     SSL_free(ssl);
+    SSL_free(stream1);
+    SSL_free(stream2);
+    SSL_free(stream3);
     SSL_CTX_free(ctx);
     BIO_ADDR_free(peer_addr);
     return res;

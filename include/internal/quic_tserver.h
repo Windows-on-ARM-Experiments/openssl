@@ -195,6 +195,22 @@ void ossl_quic_tserver_set_msg_callback(QUIC_TSERVER *srv,
                                                   SSL *ssl, void *arg),
                                         void *arg);
 
+/*
+ * This is similar to ossl_quic_conn_get_channel; it should be used for test
+ * instrumentation only and not to bypass QUIC_TSERVER for 'normal' operations.
+ */
+QUIC_CHANNEL *ossl_quic_tserver_get_channel(QUIC_TSERVER *srv);
+
+/* Send a TLS new session ticket */
+int ossl_quic_tserver_new_ticket(QUIC_TSERVER *srv);
+
+/*
+ * Set the max_early_data value to be sent in NewSessionTickets. Only the
+ * values 0 and 0xffffffff are valid for use in QUIC.
+ */
+int ossl_quic_tserver_set_max_early_data(QUIC_TSERVER *srv,
+                                         uint32_t max_early_data);
+
 # endif
 
 #endif
