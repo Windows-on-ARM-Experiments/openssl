@@ -170,8 +170,9 @@ while(my $line=<>) {
     }
 
     {
-	if ($line =~ s|(^[\.\w]+)\:\s*||) {
-	    my $label = $1;
+	$line =~ s|(^[\.\w]+)\:\s*||;
+	my $label = $1;
+	if ($label) {
 	    printf "%s:",($GLOBALS{$label} or $label);
 	}
     }

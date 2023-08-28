@@ -150,7 +150,7 @@ static int net_sim_send(struct net_sim *s, size_t sz)
      * increase our spare capacity.
      */
     if (!TEST_true(net_sim_process(s, 0)))
-        goto err;
+        return 0;
 
     /* Do we have room for the packet in the network? */
     success = (sz <= s->spare_capacity);
@@ -185,16 +185,12 @@ static int net_sim_send(struct net_sim *s, size_t sz)
     pkt->size = sz;
 
     if (!TEST_true(s->ccm->on_data_sent(s->cc, sz)))
-        goto err;
+        return 0;
 
     if (!TEST_true(ossl_pqueue_NET_PKT_push(s->pkts, pkt, &pkt->idx)))
-        goto err;
+        return 0;
 
     return 1;
-
-err:
-    OPENSSL_free(pkt);
-    return 0;
 }
 
 static int net_sim_process_one(struct net_sim *s, int skip_forward)

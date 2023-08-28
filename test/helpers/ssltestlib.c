@@ -884,7 +884,6 @@ int create_ssl_ctx_pair(OSSL_LIB_CTX *libctx, const SSL_METHOD *sm,
 #define MAXLOOPS    1000000
 
 #if defined(OSSL_USE_SOCKETS)
-
 int wait_until_sock_readable(int sock)
 {
     fd_set readfds;
@@ -1012,14 +1011,6 @@ int create_ssl_objects2(SSL_CTX *serverctx, SSL_CTX *clientctx, SSL **sssl,
     BIO_free(c_to_s_bio);
     return 0;
 }
-
-#else
-
-int wait_until_sock_readable(int sock)
-{
-    return 0;
-}
-
 #endif /* defined(OSSL_USE_SOCKETS) */
 
 /*

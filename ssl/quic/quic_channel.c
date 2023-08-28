@@ -86,21 +86,17 @@ static int ch_discard_el(QUIC_CHANNEL *ch,
 static void ch_on_idle_timeout(QUIC_CHANNEL *ch);
 static void ch_update_idle(QUIC_CHANNEL *ch);
 static void ch_update_ping_deadline(QUIC_CHANNEL *ch);
-static void ch_stateless_reset(QUIC_CHANNEL *ch);
 static void ch_raise_net_error(QUIC_CHANNEL *ch);
 static void ch_on_terminating_timeout(QUIC_CHANNEL *ch);
 static void ch_start_terminating(QUIC_CHANNEL *ch,
                                  const QUIC_TERMINATE_CAUSE *tcause,
                                  int force_immediate);
-static int ch_stateless_reset_token_handler(const unsigned char *data, size_t datalen, void *arg);
 static void ch_default_packet_handler(QUIC_URXE *e, void *arg);
 static int ch_server_on_new_conn(QUIC_CHANNEL *ch, const BIO_ADDR *peer,
                                  const QUIC_CONN_ID *peer_scid,
                                  const QUIC_CONN_ID *peer_dcid);
 static void ch_on_txp_ack_tx(const OSSL_QUIC_FRAME_ACK *ack, uint32_t pn_space,
                              void *arg);
-
-DEFINE_LHASH_OF_EX(QUIC_SRT_ELEM);
 
 static int gen_rand_conn_id(OSSL_LIB_CTX *libctx, size_t len, QUIC_CONN_ID *cid)
 {
@@ -110,7 +106,6 @@ static int gen_rand_conn_id(OSSL_LIB_CTX *libctx, size_t len, QUIC_CONN_ID *cid)
     cid->id_len = (unsigned char)len;
 
     if (RAND_bytes_ex(libctx, cid->id, len, len * 8) != 1) {
-        ERR_raise(ERR_LIB_SSL, ERR_R_RAND_LIB);
         cid->id_len = 0;
         return 0;
     }
@@ -118,145 +113,15 @@ static int gen_rand_conn_id(OSSL_LIB_CTX *libctx, size_t len, QUIC_CONN_ID *cid)
     return 1;
 }
 
-static unsigned long chan_reset_token_hash(const QUIC_SRT_ELEM *a)
-{
-    unsigned long h;
-
-    assert(sizeof(h) <= sizeof(a->token));
-    memcpy(&h, &a->token, sizeof(h));
-    return h;
-}
-
-static int chan_reset_token_cmp(const QUIC_SRT_ELEM *a, const QUIC_SRT_ELEM *b)
-{
-    /* RFC 9000 s. 10.3.1:
-     *      When comparing a datagram to stateless reset token values,
-     *      endpoints MUST perform the comparison without leaking
-     *      information about the value of the token. For example,
-     *      performing this comparison in constant time protects the
-     *      value of individual stateless reset tokens from information
-     *      leakage through timing side channels.
-     *
-     * TODO(QUIC FUTURE): make this a memcmp when obfuscation is done and update
-     *                    comment above.
-     */
-    return CRYPTO_memcmp(&a->token, &b->token, sizeof(a->token));
-}
-
-static int reset_token_obfuscate(QUIC_SRT_ELEM *out, const unsigned char *in)
-{
-    /*
-     * TODO(QUIC FUTURE): update this to AES encrypt the token in ECB mode with a
-     * random (per channel) key.
-     */
-    memcpy(&out->token, in, sizeof(out->token));
-    return 1;
-}
-
-/*
- * Add a stateless reset token to the channel
- */
-static int chan_add_reset_token(QUIC_CHANNEL *ch, const unsigned char *new,
-                                uint64_t seq_num)
-{
-    QUIC_SRT_ELEM *srte;
-    int err;
-
-    /* Add to list by sequence number (always the tail) */
-    if ((srte = OPENSSL_malloc(sizeof(*srte))) == NULL)
-        return 0;
-
-    ossl_list_stateless_reset_tokens_init_elem(srte);
-    ossl_list_stateless_reset_tokens_insert_tail(&ch->srt_list_seq, srte);
-    reset_token_obfuscate(srte, new);
-    srte->seq_num = seq_num;
-
-    lh_QUIC_SRT_ELEM_insert(ch->srt_hash_tok, srte);
-    err = lh_QUIC_SRT_ELEM_error(ch->srt_hash_tok);
-    if (err > 0) {
-        ossl_list_stateless_reset_tokens_remove(&ch->srt_list_seq, srte);
-        OPENSSL_free(srte);
-        return 0;
-    }
-    return 1;
-}
-
-/*
- * Remove a stateless reset token from the channel
- * If the token isn't known, we just ignore the remove request which is safe.
- */
-static void chan_remove_reset_token(QUIC_CHANNEL *ch, uint64_t seq_num)
-{
-    QUIC_SRT_ELEM *srte;
-
-    /*
-     * Because the list is ordered and we only ever remove CIDs in order,
-     * this loop should never iterate, but safer to provide the option.
-     */
-    for (srte = ossl_list_stateless_reset_tokens_head(&ch->srt_list_seq);
-         srte != NULL;
-         srte = ossl_list_stateless_reset_tokens_next(srte)) {
-        if (srte->seq_num > seq_num)
-            return;
-        if (srte->seq_num == seq_num) {
-            ossl_list_stateless_reset_tokens_remove(&ch->srt_list_seq, srte);
-            (void)lh_QUIC_SRT_ELEM_delete(ch->srt_hash_tok, srte);
-            OPENSSL_free(srte);
-            return;
-        }
-    }
-}
-
-/*
- * This is called by the demux whenever a new datagram arrives
- *
- * TODO(QUIC FUTURE): optimise this to only be called for unparsable packets
- */
-static int ch_stateless_reset_token_handler(const unsigned char *data,
-                                            size_t datalen, void *arg)
-{
-    QUIC_SRT_ELEM srte;
-    QUIC_CHANNEL *ch = (QUIC_CHANNEL *)arg;
-
-    /*
-     * Perform some fast and cheap checks for a packet not being a stateless
-     * reset token.  RFC 9000 s. 10.3 specifies this layout for stateless
-     * reset packets:
-     *
-     *  Stateless Reset {
-     *      Fixed Bits (2) = 1,
-     *      Unpredictable Bits (38..),
-     *      Stateless Reset Token (128),
-     *  }
-     *
-     * It also specifies:
-     *      However, endpoints MUST treat any packet ending in a valid
-     *      stateless reset token as a Stateless Reset, as other QUIC
-     *      versions might allow the use of a long header.
-     *
-     * We can rapidly check for the minimum length and that the first pair
-     * of bits in the first byte are 01 or 11.
-     *
-     * The function returns 1 if it is a stateless reset packet, 0 if it isn't
-     * and -1 if an error was encountered.
-     */
-    if (datalen < QUIC_STATELESS_RESET_TOKEN_LEN + 5 || (0100 & *data) != 0100)
-        return 0;
-    memset(&srte, 0, sizeof(srte));
-    if (!reset_token_obfuscate(&srte, data + datalen - sizeof(srte.token)))
-        return -1;
-    return lh_QUIC_SRT_ELEM_retrieve(ch->srt_hash_tok, &srte) != NULL;
-}
-
 /*
  * QUIC Channel Initialization and Teardown
  * ========================================
  */
-#define DEFAULT_INIT_CONN_RXFC_WND      (768 * 1024)
-#define DEFAULT_CONN_RXFC_MAX_WND_MUL   20
+#define DEFAULT_INIT_CONN_RXFC_WND      (2 * 1024 * 1024)
+#define DEFAULT_CONN_RXFC_MAX_WND_MUL   5
 
-#define DEFAULT_INIT_STREAM_RXFC_WND    (512 * 1024)
-#define DEFAULT_STREAM_RXFC_MAX_WND_MUL 12
+#define DEFAULT_INIT_STREAM_RXFC_WND    (2 * 1024 * 1024)
+#define DEFAULT_STREAM_RXFC_MAX_WND_MUL 5
 
 #define DEFAULT_INIT_CONN_MAX_STREAMS           100
 
@@ -268,12 +133,6 @@ static int ch_init(QUIC_CHANNEL *ch)
     QUIC_TLS_ARGS tls_args = {0};
     uint32_t pn_space;
     size_t rx_short_cid_len = ch->is_server ? INIT_DCID_LEN : 0;
-
-    ossl_list_stateless_reset_tokens_init(&ch->srt_list_seq);
-    ch->srt_hash_tok = lh_QUIC_SRT_ELEM_new(&chan_reset_token_hash,
-                                            &chan_reset_token_cmp);
-    if (ch->srt_hash_tok == NULL)
-        goto err;
 
     /* For clients, generate our initial DCID. */
     if (!ch->is_server
@@ -390,13 +249,6 @@ static int ch_init(QUIC_CHANNEL *ch)
         goto err;
 
     /*
-     * Setup a handler to detect stateless reset tokens.
-     */
-    ossl_quic_demux_set_stateless_reset_handler(ch->demux,
-                                                &ch_stateless_reset_token_handler,
-                                                ch);
-
-    /*
      * If we are a server, setup our handler for packets not corresponding to
      * any known DCID on our end. This is for handling clients establishing new
      * connections.
@@ -486,7 +338,6 @@ err:
 
 static void ch_cleanup(QUIC_CHANNEL *ch)
 {
-    QUIC_SRT_ELEM *srte, *srte_next;
     uint32_t pn_space;
 
     if (ch->ackm != NULL)
@@ -520,19 +371,7 @@ static void ch_cleanup(QUIC_CHANNEL *ch)
     ossl_qrx_free(ch->qrx);
     ossl_quic_demux_free(ch->demux);
     OPENSSL_free(ch->local_transport_params);
-    OPENSSL_free((char *)ch->terminate_cause.reason);
     OSSL_ERR_STATE_free(ch->err_state);
-
-    /* Free the stateless reset tokens */
-    for (srte = ossl_list_stateless_reset_tokens_head(&ch->srt_list_seq);
-         srte != NULL;
-         srte = srte_next) {
-        srte_next = ossl_list_stateless_reset_tokens_next(srte);
-        ossl_list_stateless_reset_tokens_remove(&ch->srt_list_seq, srte);
-        (void)lh_QUIC_SRT_ELEM_delete(ch->srt_hash_tok, srte);
-        OPENSSL_free(srte);
-    }
-    lh_QUIC_SRT_ELEM_free(ch->srt_hash_tok);
 }
 
 QUIC_CHANNEL *ossl_quic_channel_new(const QUIC_CHANNEL_ARGS *args)
@@ -1149,39 +988,8 @@ static int ch_on_handshake_alert(void *arg, unsigned char alert_code)
 {
     QUIC_CHANNEL *ch = arg;
 
-    /*
-     * RFC 9001 s. 4.4: More specifically, servers MUST NOT send post-handshake
-     * TLS CertificateRequest messages, and clients MUST treat receipt of such
-     * messages as a connection error of type PROTOCOL_VIOLATION.
-     */
-    if (alert_code == SSL_AD_UNEXPECTED_MESSAGE
-            && ch->handshake_complete
-            && ossl_quic_tls_is_cert_request(ch->qtls))
-        ossl_quic_channel_raise_protocol_error(ch,
-                                               QUIC_ERR_PROTOCOL_VIOLATION,
-                                               0,
-                                               "Post-handshake TLS "
-                                               "CertificateRequest received");
-    /*
-     * RFC 9001 s. 4.6.1: Servers MUST NOT send the early_data extension with a
-     * max_early_data_size field set to any value other than 0xffffffff. A
-     * client MUST treat receipt of a NewSessionTicket that contains an
-     * early_data extension with any other value as a connection error of type
-     * PROTOCOL_VIOLATION.
-     */
-    else if (alert_code == SSL_AD_ILLEGAL_PARAMETER
-             && ch->handshake_complete
-             && ossl_quic_tls_has_bad_max_early_data(ch->qtls))
-        ossl_quic_channel_raise_protocol_error(ch,
-                                               QUIC_ERR_PROTOCOL_VIOLATION,
-                                               0,
-                                               "Bad max_early_data received");
-    else
-        ossl_quic_channel_raise_protocol_error(ch,
-                                               QUIC_ERR_CRYPTO_ERR_BEGIN
-                                               + alert_code,
-                                               0, "handshake alert");
-
+    ossl_quic_channel_raise_protocol_error(ch, QUIC_ERR_CRYPTO_ERR_BEGIN + alert_code,
+                                           0, "handshake alert");
     return 1;
 }
 
@@ -1207,8 +1015,6 @@ static int ch_on_handshake_alert(void *arg, unsigned char alert_code)
     x " sent when not performing a retry"
 #define TP_REASON_REQUIRED(x) \
     x " was not sent but is required"
-#define TP_REASON_INTERNAL_ERROR(x) \
-    x " encountered internal error"
 
 static void txfc_bump_cwm_bidi(QUIC_STREAM *s, void *arg)
 {
@@ -1265,11 +1071,8 @@ static int ch_on_transport_params(const unsigned char *params,
     if (ch->got_remote_transport_params)
         goto malformed;
 
-    if (!PACKET_buf_init(&pkt, params, params_len)) {
-        ossl_quic_channel_raise_protocol_error(ch, QUIC_ERR_INTERNAL_ERROR, 0,
-                                               "internal error (packet buf init)");
+    if (!PACKET_buf_init(&pkt, params, params_len))
         return 0;
-    }
 
     while (PACKET_remaining(&pkt) > 0) {
         if (!ossl_quic_wire_peek_transport_param(&pkt, &id))
@@ -1451,7 +1254,7 @@ static int ch_on_transport_params(const unsigned char *params,
             if (got_max_ack_delay) {
                 /* must not appear more than once */
                 reason = TP_REASON_DUP("MAX_ACK_DELAY");
-                goto malformed;
+                return 0;
             }
 
             if (!ossl_quic_wire_decode_transport_param_int(&pkt, &id, &v)
@@ -1471,7 +1274,7 @@ static int ch_on_transport_params(const unsigned char *params,
             if (got_initial_max_streams_bidi) {
                 /* must not appear more than once */
                 reason = TP_REASON_DUP("INITIAL_MAX_STREAMS_BIDI");
-                goto malformed;
+                return 0;
             }
 
             if (!ossl_quic_wire_decode_transport_param_int(&pkt, &id, &v)
@@ -1557,11 +1360,10 @@ static int ch_on_transport_params(const unsigned char *params,
             break;
 
         case QUIC_TPARAM_STATELESS_RESET_TOKEN:
+            /* TODO(QUIC): Handle stateless reset tokens. */
             /*
-             * We must ensure a client doesn't send them because we don't have
-             * processing for them.
-             *
-             * TODO(QUIC SERVER): remove this restriction
+             * We ignore these for now, but we must ensure a client doesn't
+             * send them.
              */
             if (ch->is_server) {
                 reason = TP_REASON_SERVER_ONLY("STATELESS_RESET_TOKEN");
@@ -1571,10 +1373,6 @@ static int ch_on_transport_params(const unsigned char *params,
             body = ossl_quic_wire_decode_transport_param_bytes(&pkt, &id, &len);
             if (body == NULL || len != QUIC_STATELESS_RESET_TOKEN_LEN) {
                 reason = TP_REASON_MALFORMED("STATELESS_RESET_TOKEN");
-                goto malformed;
-            }
-            if (!chan_add_reset_token(ch, body, ch->cur_remote_seq_num)) {
-                reason = TP_REASON_INTERNAL_ERROR("STATELESS_RESET_TOKEN");
                 goto malformed;
             }
 
@@ -1963,9 +1761,7 @@ static void ch_rx_pre(QUIC_CHANNEL *ch)
      * to the appropriate QRX instance.
      */
     ret = ossl_quic_demux_pump(ch->demux);
-    if (ret == QUIC_DEMUX_PUMP_RES_STATELESS_RESET)
-        ch_stateless_reset(ch);
-    else if (ret == QUIC_DEMUX_PUMP_RES_PERMANENT_FAIL)
+    if (ret == QUIC_DEMUX_PUMP_RES_PERMANENT_FAIL)
         /*
          * We don't care about transient failure, but permanent failure means we
          * should tear down the connection as though a protocol violation
@@ -2032,10 +1828,8 @@ static int ch_rx(QUIC_CHANNEL *ch)
             ossl_quic_tx_packetiser_record_received_closing_bytes(
                     ch->txp, ch->qrx_pkt->hdr->len);
 
-        if (!handled_any) {
+        if (!handled_any)
             ch_update_idle(ch);
-            ch_update_ping_deadline(ch);
-        }
 
         ch_rx_handle_packet(ch); /* best effort */
 
@@ -2206,11 +2000,9 @@ static void ch_rx_handle_packet(QUIC_CHANNEL *ch)
             /* Malformed retry packet, ignore. */
             return;
 
-        if (!ch_retry(ch, ch->qrx_pkt->hdr->data,
-                      ch->qrx_pkt->hdr->len - QUIC_RETRY_INTEGRITY_TAG_LEN,
-                      &ch->qrx_pkt->hdr->src_conn_id))
-            ossl_quic_channel_raise_protocol_error(ch, QUIC_ERR_INTERNAL_ERROR,
-                                                   0, "handling retry packet");
+        ch_retry(ch, ch->qrx_pkt->hdr->data,
+                 ch->qrx_pkt->hdr->len - QUIC_RETRY_INTEGRITY_TAG_LEN,
+                 &ch->qrx_pkt->hdr->src_conn_id);
         break;
 
     case QUIC_PKT_TYPE_0RTT:
@@ -2228,7 +2020,7 @@ static void ch_rx_handle_packet(QUIC_CHANNEL *ch)
     case QUIC_PKT_TYPE_INITIAL:
     case QUIC_PKT_TYPE_HANDSHAKE:
     case QUIC_PKT_TYPE_1RTT:
-        if (ch->is_server && ch->qrx_pkt->hdr->type == QUIC_PKT_TYPE_HANDSHAKE)
+        if (ch->qrx_pkt->hdr->type == QUIC_PKT_TYPE_HANDSHAKE)
             /*
              * We automatically drop INITIAL EL keys when first successfully
              * decrypting a HANDSHAKE packet, as per the RFC.
@@ -2372,7 +2164,6 @@ undesirable:
 static int ch_tx(QUIC_CHANNEL *ch)
 {
     QUIC_TXP_STATUS status;
-    int res;
 
     /*
      * RFC 9000 s. 10.2.2: Draining Connection State:
@@ -2406,62 +2197,59 @@ static int ch_tx(QUIC_CHANNEL *ch)
 
     ch->rxku_pending_confirm_done = 0;
 
-    /* Loop until we stop generating packets to send */
-    do {
+    /*
+     * Send a packet, if we need to. Best effort. The TXP consults the CC and
+     * applies any limitations imposed by it, so we don't need to do it here.
+     *
+     * Best effort. In particular if TXP fails for some reason we should still
+     * flush any queued packets which we already generated.
+     */
+    switch (ossl_quic_tx_packetiser_generate(ch->txp, &status)) {
+    case TX_PACKETISER_RES_SENT_PKT:
+        ch->have_sent_any_pkt = 1; /* Packet was sent */
+
         /*
-        * Send packet, if we need to. Best effort. The TXP consults the CC and
-        * applies any limitations imposed by it, so we don't need to do it here.
-        *
-        * Best effort. In particular if TXP fails for some reason we should
-        * still flush any queued packets which we already generated.
-        */
-        res = ossl_quic_tx_packetiser_generate(ch->txp, &status);
-        if (status.sent_pkt > 0) {
-            ch->have_sent_any_pkt = 1; /* Packet(s) were sent */
-
-            /*
-            * RFC 9000 s. 10.1. 'An endpoint also restarts its idle timer when
-            * sending an ack-eliciting packet if no other ack-eliciting packets
-            * have been sent since last receiving and processing a packet.'
-            */
-            if (status.sent_ack_eliciting
-                    && !ch->have_sent_ack_eliciting_since_rx) {
-                ch_update_idle(ch);
-                ch->have_sent_ack_eliciting_since_rx = 1;
-            }
-
-            if (!ch->is_server && status.sent_handshake)
-                /*
-                * RFC 9001 s. 4.9.1: A client MUST discard Initial keys when it
-                * first sends a Handshake packet.
-                */
-                ch_discard_el(ch, QUIC_ENC_LEVEL_INITIAL);
-
-            if (ch->rxku_pending_confirm_done)
-                ch->rxku_pending_confirm = 0;
-
-            ch_update_ping_deadline(ch);
+         * RFC 9000 s. 10.1. 'An endpoint also restarts its idle timer when
+         * sending an ack-eliciting packet if no other ack-eliciting packets
+         * have been sent since last receiving and processing a packet.'
+         */
+        if (status.sent_ack_eliciting && !ch->have_sent_ack_eliciting_since_rx) {
+            ch_update_idle(ch);
+            ch->have_sent_ack_eliciting_since_rx = 1;
         }
 
-        if (!res) {
+        if (!ch->is_server && status.sent_handshake)
             /*
-            * One case where TXP can fail is if we reach a TX PN of 2**62 - 1.
-            * As per RFC 9000 s. 12.3, if this happens we MUST close the
-            * connection without sending a CONNECTION_CLOSE frame. This is
-            * actually handled as an emergent consequence of our design, as the
-            * TX packetiser will never transmit another packet when the TX PN
-            * reaches the limit.
-            *
-            * Calling the below function terminates the connection; its attempt
-            * to schedule a CONNECTION_CLOSE frame will not actually cause a
-            * packet to be transmitted for this reason.
-            */
-            ossl_quic_channel_raise_protocol_error(ch, QUIC_ERR_INTERNAL_ERROR,
-                                                   0,
-                                                   "internal error (txp generate)");
-            break;
-        }
-    } while (status.sent_pkt > 0);
+             * RFC 9001 s. 4.9.1: A client MUST discard Initial keys when it
+             * first sends a Handshake packet.
+             */
+            ch_discard_el(ch, QUIC_ENC_LEVEL_INITIAL);
+
+        if (ch->rxku_pending_confirm_done)
+            ch->rxku_pending_confirm = 0;
+
+        ch_update_ping_deadline(ch);
+        break;
+
+    case TX_PACKETISER_RES_NO_PKT:
+        break; /* No packet was sent */
+
+    default:
+        /*
+         * One case where TXP can fail is if we reach a TX PN of 2**62 - 1. As
+         * per RFC 9000 s. 12.3, if this happens we MUST close the connection
+         * without sending a CONNECTION_CLOSE frame. This is actually handled as
+         * an emergent consequence of our design, as the TX packetiser will
+         * never transmit another packet when the TX PN reaches the limit.
+         *
+         * Calling the below function terminates the connection; its attempt to
+         * schedule a CONNECTION_CLOSE frame will not actually cause a packet to
+         * be transmitted for this reason.
+         */
+        ossl_quic_channel_raise_protocol_error(ch, QUIC_ERR_INTERNAL_ERROR, 0,
+                                               "internal error");
+        break; /* Internal failure (e.g.  allocation, assertion) */
+    }
 
     /* Flush packets to network. */
     switch (ossl_qtx_flush_net(ch->qtx)) {
@@ -2542,10 +2330,8 @@ static OSSL_TIME ch_determine_next_tick_deadline(QUIC_CHANNEL *ch)
 /* Determines whether we can support a given poll descriptor. */
 static int validate_poll_descriptor(const BIO_POLL_DESCRIPTOR *d)
 {
-    if (d->type == BIO_POLL_DESCRIPTOR_TYPE_SOCK_FD && d->value.fd < 0) {
-        ERR_raise(ERR_LIB_SSL, ERR_R_PASSED_INVALID_ARGUMENT);
+    if (d->type == BIO_POLL_DESCRIPTOR_TYPE_SOCK_FD && d->value.fd < 0)
         return 0;
-    }
 
     return 1;
 }
@@ -2652,8 +2438,7 @@ int ossl_quic_channel_start(QUIC_CHANNEL *ch)
 }
 
 /* Start a locally initiated connection shutdown. */
-void ossl_quic_channel_local_close(QUIC_CHANNEL *ch, uint64_t app_error_code,
-                                   const char *app_reason)
+void ossl_quic_channel_local_close(QUIC_CHANNEL *ch, uint64_t app_error_code)
 {
     QUIC_TERMINATE_CAUSE tcause = {0};
 
@@ -2662,8 +2447,6 @@ void ossl_quic_channel_local_close(QUIC_CHANNEL *ch, uint64_t app_error_code,
 
     tcause.app          = 1;
     tcause.error_code   = app_error_code;
-    tcause.reason       = app_reason;
-    tcause.reason_len   = app_reason != NULL ? strlen(app_reason) : 0;
     ch_start_terminating(ch, &tcause, 0);
 }
 
@@ -2685,7 +2468,7 @@ static int ch_retry(QUIC_CHANNEL *ch,
      * a SCID field that is identical to the DCID field of its initial packet."
      */
     if (ossl_quic_conn_id_eq(&ch->init_dcid, retry_scid))
-        return 1;
+        return 0;
 
     /* We change to using the SCID in the Retry packet as the DCID. */
     if (!ossl_quic_tx_packetiser_set_cur_dcid(ch->txp, retry_scid))
@@ -2839,37 +2622,6 @@ int ossl_quic_channel_on_handshake_confirmed(QUIC_CHANNEL *ch)
  *      closing state and send a packet containing a CONNECTION_CLOSE
  *      frame in response to any UDP datagram that is received.
  */
-static void copy_tcause(QUIC_TERMINATE_CAUSE *dst,
-                        const QUIC_TERMINATE_CAUSE *src)
-{
-    dst->error_code = src->error_code;
-    dst->frame_type = src->frame_type;
-    dst->app        = src->app;
-    dst->remote     = src->remote;
-
-    dst->reason     = NULL;
-    dst->reason_len = 0;
-
-    if (src->reason != NULL && src->reason_len > 0) {
-        size_t l = src->reason_len;
-        char *r;
-
-        if (l >= SIZE_MAX)
-            --l;
-
-        /*
-         * If this fails, dst->reason becomes NULL and we simply do not use a
-         * reason. This ensures termination is infallible.
-         */
-        dst->reason = r = OPENSSL_memdup(src->reason, l + 1);
-        if (r == NULL)
-            return;
-
-        r[l]  = '\0';
-        dst->reason_len = l;
-    }
-}
-
 static void ch_start_terminating(QUIC_CHANNEL *ch,
                                  const QUIC_TERMINATE_CAUSE *tcause,
                                  int force_immediate)
@@ -2877,12 +2629,12 @@ static void ch_start_terminating(QUIC_CHANNEL *ch,
     switch (ch->state) {
     default:
     case QUIC_CHANNEL_STATE_IDLE:
-        copy_tcause(&ch->terminate_cause, tcause);
+        ch->terminate_cause = *tcause;
         ch_on_terminating_timeout(ch);
         break;
 
     case QUIC_CHANNEL_STATE_ACTIVE:
-        copy_tcause(&ch->terminate_cause, tcause);
+        ch->terminate_cause = *tcause;
 
         if (!force_immediate) {
             ch->state = tcause->remote ? QUIC_CHANNEL_STATE_TERMINATING_DRAINING
@@ -2904,8 +2656,6 @@ static void ch_start_terminating(QUIC_CHANNEL *ch,
                 f.error_code = ch->terminate_cause.error_code;
                 f.frame_type = ch->terminate_cause.frame_type;
                 f.is_app     = ch->terminate_cause.app;
-                f.reason     = (char *)ch->terminate_cause.reason;
-                f.reason_len = ch->terminate_cause.reason_len;
                 ossl_quic_tx_packetiser_schedule_conn_close(ch->txp, &f);
                 /*
                  * RFC 9000 s. 10.2.2 Draining Connection State:
@@ -2964,8 +2714,7 @@ void ossl_quic_channel_on_remote_conn_close(QUIC_CHANNEL *ch,
     tcause.app        = f->is_app;
     tcause.error_code = f->error_code;
     tcause.frame_type = f->frame_type;
-    tcause.reason     = f->reason;
-    tcause.reason_len = f->reason_len;
+
     ch_start_terminating(ch, &tcause, 0);
 }
 
@@ -2976,14 +2725,12 @@ static void free_frame_data(unsigned char *buf, size_t buf_len, void *arg)
 
 static int ch_enqueue_retire_conn_id(QUIC_CHANNEL *ch, uint64_t seq_num)
 {
-    BUF_MEM *buf_mem = NULL;
+    BUF_MEM *buf_mem;
     WPACKET wpkt;
     size_t l;
 
-    chan_remove_reset_token(ch, seq_num);
-
     if ((buf_mem = BUF_MEM_new()) == NULL)
-        goto err;
+        return 0;
 
     if (!WPACKET_init(&wpkt, buf_mem))
         goto err;
@@ -3084,16 +2831,6 @@ void ossl_quic_channel_on_new_conn_id(QUIC_CHANNEL *ch,
     }
 
     if (new_remote_seq_num > ch->cur_remote_seq_num) {
-        /* Add new stateless reset token */
-        if (!chan_add_reset_token(ch, f->stateless_reset.token,
-                                  new_remote_seq_num)) {
-            ossl_quic_channel_raise_protocol_error(
-                    ch, QUIC_ERR_CONNECTION_ID_LIMIT_ERROR,
-                    OSSL_QUIC_FRAME_TYPE_NEW_CONN_ID,
-                    "unable to store stateless reset token");
-
-            return;
-        }
         ch->cur_remote_seq_num = new_remote_seq_num;
         ch->cur_remote_dcid = f->conn_id;
         ossl_quic_tx_packetiser_set_cur_dcid(ch->txp, &ch->cur_remote_dcid);
@@ -3135,14 +2872,6 @@ static void ch_save_err_state(QUIC_CHANNEL *ch)
         return;
 
     OSSL_ERR_STATE_save(ch->err_state);
-}
-
-static void ch_stateless_reset(QUIC_CHANNEL *ch)
-{
-    QUIC_TERMINATE_CAUSE tcause = {0};
-
-    tcause.error_code = QUIC_ERR_NO_ERROR;
-    ch_start_terminating(ch, &tcause, 1);
 }
 
 static void ch_raise_net_error(QUIC_CHANNEL *ch)
@@ -3238,8 +2967,6 @@ void ossl_quic_channel_raise_protocol_error_loc(QUIC_CHANNEL *ch,
 
     tcause.error_code = error_code;
     tcause.frame_type = frame_type;
-    tcause.reason     = reason;
-    tcause.reason_len = strlen(reason);
 
     ch_start_terminating(ch, &tcause, 0);
 }
@@ -3434,23 +3161,6 @@ err:
     return 0;
 }
 
-static uint64_t *ch_get_local_stream_next_ordinal_ptr(QUIC_CHANNEL *ch,
-                                                      int is_uni)
-{
-    return is_uni ? &ch->next_local_stream_ordinal_uni
-                  : &ch->next_local_stream_ordinal_bidi;
-}
-
-int ossl_quic_channel_is_new_local_stream_admissible(QUIC_CHANNEL *ch,
-                                                     int is_uni)
-{
-    uint64_t *p_next_ordinal = ch_get_local_stream_next_ordinal_ptr(ch, is_uni);
-
-    return ossl_quic_stream_map_is_local_allowed_by_stream_limit(&ch->qsm,
-                                                                 *p_next_ordinal,
-                                                                 is_uni);
-}
-
 QUIC_STREAM *ossl_quic_channel_new_stream_local(QUIC_CHANNEL *ch, int is_uni)
 {
     QUIC_STREAM *qs;
@@ -3460,12 +3170,13 @@ QUIC_STREAM *ossl_quic_channel_new_stream_local(QUIC_CHANNEL *ch, int is_uni)
     type = ch->is_server ? QUIC_STREAM_INITIATOR_SERVER
                          : QUIC_STREAM_INITIATOR_CLIENT;
 
-    p_next_ordinal = ch_get_local_stream_next_ordinal_ptr(ch, is_uni);
-
-    if (is_uni)
+    if (is_uni) {
+        p_next_ordinal = &ch->next_local_stream_ordinal_uni;
         type |= QUIC_STREAM_DIR_UNI;
-    else
+    } else {
+        p_next_ordinal = &ch->next_local_stream_ordinal_bidi;
         type |= QUIC_STREAM_DIR_BIDI;
+    }
 
     if (*p_next_ordinal >= ((uint64_t)1) << 62)
         return NULL;
@@ -3620,14 +3331,4 @@ int ossl_quic_channel_ping(QUIC_CHANNEL *ch)
 void ossl_quic_channel_set_inhibit_tick(QUIC_CHANNEL *ch, int inhibit)
 {
     ch->inhibit_tick = (inhibit != 0);
-}
-
-uint16_t ossl_quic_channel_get_diag_num_rx_ack(QUIC_CHANNEL *ch)
-{
-    return ch->diag_num_rx_ack;
-}
-
-void ossl_quic_channel_get_diag_local_cid(QUIC_CHANNEL *ch, QUIC_CONN_ID *cid)
-{
-    *cid = ch->cur_local_cid;
 }

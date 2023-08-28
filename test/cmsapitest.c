@@ -65,7 +65,7 @@ static int test_encrypt_decrypt(const EVP_CIPHER *cipher)
     BIO_free(outmsgbio);
     CMS_ContentInfo_free(content);
 
-    return testresult && TEST_int_eq(ERR_peek_error(), 0);
+    return testresult;
 }
 
 static int test_encrypt_decrypt_aes_cbc(void)
@@ -312,7 +312,7 @@ static int test_d2i_CMS_bio_NULL(void)
     BIO_free(content);
     CMS_ContentInfo_free(cms);
     BIO_free(bio);
-    return ret && TEST_int_eq(ERR_peek_error(), 0);
+    return ret;
 }
 
 static unsigned char *read_all(BIO *bio, long *p_len)

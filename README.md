@@ -114,7 +114,7 @@ document.
  * [Notes on Valgrind](NOTES-VALGRIND.md)
 
 Specific notes on upgrading to OpenSSL 3.0 from previous versions can be found
-in the [ossl-guide-migration(7ossl)] manual page.
+in the [migration_guide(7ossl)] manual page.
 
 Documentation
 =============
@@ -194,8 +194,8 @@ All rights reserved.
     <https://wiki.openssl.org>
     "OpenSSL Wiki"
 
-[ossl-guide-migration(7ossl)]:
-    <https://www.openssl.org/docs/manmaster/man7/ossl-guide-migration.html>
+[migration_guide(7ossl)]:
+    <https://www.openssl.org/docs/manmaster/man7/migration_guide.html>
     "OpenSSL Migration Guide"
 
 [RFC 8446]:

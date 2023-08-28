@@ -9,7 +9,7 @@ CFLAGS = -I../../include -g
 LDFLAGS = -L../..
 LDLIBS = -lcrypto -lssl
 
-all: tls-client-block quic-client-block quic-multi-stream
+all: tls-client-block quic-client-block
 
 tls-client-block: tls-client-block.c
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< $(LDLIBS)
@@ -17,8 +17,5 @@ tls-client-block: tls-client-block.c
 quic-client-block: quic-client-block.c
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< $(LDLIBS)
 
-quic-multi-stream: quic-multi-stream.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $< $(LDLIBS)
-
 clean:
-	$(RM) *.o tls-client-block quic-client-block quic-multi-stream
+	$(RM) *.o tls-client-block quic-client-block

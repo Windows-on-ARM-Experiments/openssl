@@ -187,8 +187,7 @@ sub test_errors { # actually tests diagnostics of OSSL_STORE
 }
 
 SKIP: {
-    skip "DSA not disabled or ERR disabled", 2
-        if !disabled("dsa") || disabled("err");
+    skip "DSA not disabled", 2 if !disabled("dsa");
 
     ok(test_errors(key => 'server-dsa-key.pem',
                    out => 'server-dsa-key.err'),

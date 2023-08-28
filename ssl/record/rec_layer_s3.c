@@ -200,7 +200,7 @@ const char *SSL_rstate_string(const SSL *s)
     return shrt;
 }
 
-static int tls_write_check_pending(SSL_CONNECTION *s, uint8_t type,
+static int tls_write_check_pending(SSL_CONNECTION *s, int type,
                                    const unsigned char *buf, size_t len)
 {
     if (s->rlayer.wpend_tot == 0)
@@ -221,7 +221,7 @@ static int tls_write_check_pending(SSL_CONNECTION *s, uint8_t type,
  * Call this to write data in records of type 'type' It will return <= 0 if
  * not all data has been sent or non-blocking IO.
  */
-int ssl3_write_bytes(SSL *ssl, uint8_t type, const void *buf_, size_t len,
+int ssl3_write_bytes(SSL *ssl, int type, const void *buf_, size_t len,
                      size_t *written)
 {
     const unsigned char *buf = buf_;
@@ -558,9 +558,8 @@ int ssl_release_record(SSL_CONNECTION *s, TLS_RECORD *rr, size_t length)
  *     Application data protocol
  *             none of our business
  */
-int ssl3_read_bytes(SSL *ssl, uint8_t type, uint8_t *recvd_type,
-                    unsigned char *buf, size_t len,
-                    int peek, size_t *readbytes)
+int ssl3_read_bytes(SSL *ssl, int type, int *recvd_type, unsigned char *buf,
+                    size_t len, int peek, size_t *readbytes)
 {
     int i, j, ret;
     size_t n, curr_rec, totalbytes;
@@ -1326,6 +1325,7 @@ int ssl_set_new_record_layer(SSL_CONNECTION *s, int version,
                 next = BIO_new(BIO_s_mem());
 
             if (next == NULL) {
+                BIO_free(prev);
                 SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
                 return 0;
             }

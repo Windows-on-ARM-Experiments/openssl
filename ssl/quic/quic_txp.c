@@ -447,7 +447,7 @@ static int txp_pkt_postgen_update_pkt_overhead(struct txp_pkt *pkt,
 static int txp_pkt_append_padding(struct txp_pkt *pkt,
                                   OSSL_QUIC_TX_PACKETISER *txp, size_t num_bytes);
 static int txp_pkt_commit(OSSL_QUIC_TX_PACKETISER *txp, struct txp_pkt *pkt,
-                          uint32_t archetype, int *txpim_pkt_reffed);
+                          uint32_t archetype);
 static uint32_t txp_determine_archetype(OSSL_QUIC_TX_PACKETISER *txp,
                                         uint64_t cc_limit);
 
@@ -702,20 +702,18 @@ int ossl_quic_tx_packetiser_generate(OSSL_QUIC_TX_PACKETISER *txp,
      *      sent to the FIFM.
      *
      */
-    int res = 0, rc;
+    int res = TX_PACKETISER_RES_FAILURE, rc;
     uint32_t archetype, enc_level;
     uint32_t conn_close_enc_level = QUIC_ENC_LEVEL_NUM;
     struct txp_pkt pkt[QUIC_ENC_LEVEL_NUM];
     size_t pkts_done = 0;
     uint64_t cc_limit = txp->args.cc_method->get_tx_allowance(txp->args.cc_data);
-    int need_padding = 0, txpim_pkt_reffed;
+    int need_padding = 0;
 
     for (enc_level = QUIC_ENC_LEVEL_INITIAL;
          enc_level < QUIC_ENC_LEVEL_NUM;
          ++enc_level)
         pkt[enc_level].h_valid = 0;
-
-    memset(status, 0, sizeof(*status));
 
     /*
      * Should not be needed, but a sanity check in case anyone else has been
@@ -800,6 +798,8 @@ int ossl_quic_tx_packetiser_generate(OSSL_QUIC_TX_PACKETISER *txp,
     }
 
     /* 4. Commit */
+    memset(status, 0, sizeof(*status));
+
     for (enc_level = QUIC_ENC_LEVEL_INITIAL;
          enc_level < QUIC_ENC_LEVEL_NUM;
          ++enc_level) {
@@ -812,19 +812,14 @@ int ossl_quic_tx_packetiser_generate(OSSL_QUIC_TX_PACKETISER *txp,
             /* Nothing was generated for this EL, so skip. */
             continue;
 
-        rc = txp_pkt_commit(txp, &pkt[enc_level], archetype,
-                            &txpim_pkt_reffed);
-        if (rc)
-            status->sent_ack_eliciting
-                = status->sent_ack_eliciting
-                || pkt[enc_level].tpkt->ackm_pkt.is_ack_eliciting;
-
-        if (txpim_pkt_reffed)
-            pkt[enc_level].tpkt = NULL; /* don't free */
-
-        if (!rc)
+        if (!txp_pkt_commit(txp, &pkt[enc_level], archetype))
             goto out;
 
+        status->sent_ack_eliciting
+            = status->sent_ack_eliciting
+            || pkt[enc_level].tpkt->ackm_pkt.is_ack_eliciting;
+
+        pkt[enc_level].tpkt = NULL; /* don't free */
         ++pkts_done;
     }
 
@@ -833,7 +828,7 @@ int ossl_quic_tx_packetiser_generate(OSSL_QUIC_TX_PACKETISER *txp,
            && pkt[QUIC_ENC_LEVEL_HANDSHAKE].h.bytes_appended > 0);
 
     /* Flush & Cleanup */
-    res = 1;
+    res = TX_PACKETISER_RES_NO_PKT;
 out:
     ossl_qtx_finish_dgram(txp->args.qtx);
 
@@ -842,9 +837,11 @@ out:
          ++enc_level)
         txp_pkt_cleanup(&pkt[enc_level], txp);
 
-    status->sent_pkt = pkts_done;
-
-    return res;
+    /*
+     * If we already successfully did at least one, make sure we report this via
+     * the return code.
+     */
+    return pkts_done > 0 ? TX_PACKETISER_RES_SENT_PKT : res;
 }
 
 static const struct archetype_data archetypes[QUIC_ENC_LEVEL_NUM][TX_PACKETISER_ARCHETYPE_NUM] = {
@@ -1804,7 +1801,6 @@ static int txp_generate_pre_token(OSSL_QUIC_TX_PACKETISER *txp,
             if (!tx_helper_commit(h))
                 return 0;
 
-            tpkt->had_conn_close = 1;
             *can_be_non_inflight = 0;
         } else {
             tx_helper_rollback(h);
@@ -2803,8 +2799,7 @@ fatal_err:
  */
 static int txp_pkt_commit(OSSL_QUIC_TX_PACKETISER *txp,
                           struct txp_pkt *pkt,
-                          uint32_t archetype,
-                          int *txpim_pkt_reffed)
+                          uint32_t archetype)
 {
     int rc = 1;
     uint32_t enc_level = pkt->h.enc_level;
@@ -2813,8 +2808,6 @@ static int txp_pkt_commit(OSSL_QUIC_TX_PACKETISER *txp,
     QUIC_STREAM *stream;
     OSSL_QTX_PKT txpkt;
     struct archetype_data a;
-
-    *txpim_pkt_reffed = 0;
 
     /* Cannot send a packet with an empty payload. */
     if (pkt->h.bytes_appended == 0)
@@ -2853,23 +2846,19 @@ static int txp_pkt_commit(OSSL_QUIC_TX_PACKETISER *txp,
     if (!ossl_quic_fifd_pkt_commit(&txp->fifd, tpkt))
         return 0;
 
-    /*
-     * Transmission and Post-Packet Generation Bookkeeping
-     * ===================================================
-     *
-     * No backing out anymore - at this point the ACKM has recorded the packet
-     * as having been sent, so we need to increment our next PN counter, or
-     * the ACKM will complain when we try to record a duplicate packet with
-     * the same PN later. At this point actually sending the packet may still
-     * fail. In this unlikely event it will simply be handled as though it
-     * were a lost packet.
-     */
-    ++txp->next_pn[pn_space];
-    *txpim_pkt_reffed = 1;
-
     /* Send the packet. */
     if (!ossl_qtx_write_pkt(txp->args.qtx, &txpkt))
         return 0;
+
+    /*
+     * Post-Packet Generation Bookkeeping
+     * ==================================
+     *
+     * No backing out anymore - we have sent the packet and need to record this
+     * fact.
+     */
+
+    ++txp->next_pn[pn_space];
 
     /*
      * Record FC and stream abort frames as sent; deactivate streams which no
@@ -2944,9 +2933,6 @@ static int txp_pkt_commit(OSSL_QUIC_TX_PACKETISER *txp,
 
     if (tpkt->had_ack_frame)
         txp->want_ack &= ~(1UL << pn_space);
-
-    if (tpkt->had_conn_close)
-        txp->want_conn_close = 0;
 
     /*
      * Decrement probe request counts if we have sent a packet that meets
