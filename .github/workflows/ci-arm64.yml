@@ -48,11 +48,11 @@ jobs:
         set PATH=%PATH%;%VCINSTALLDIR%\Tools\Llvm\ARM64\bin
         perl Configure VC-WIN64-ARM
         nmake
-        if %errorlevel% neq 0 ( exit 1)
+        if %errorlevel% neq 0 ( exit 1 )
         nmake test
-        if %errorlevel% neq 0 ( exit 1)
+        if %errorlevel% neq 0 ( exit 1 )
         call .github\workflows\scripts\benchmark.bat 2> benchmark.txt
-        if %errorlevel% neq 0 ( exit 1)
+        if %errorlevel% neq 0 ( exit 1 )
         type benchmark.txt
 
   build-openssl-windows-arm64-clangcl:
@@ -76,11 +76,11 @@ jobs:
         set PATH=%PATH%;%VCINSTALLDIR%\Tools\Llvm\ARM64\bin
         perl Configure VC-CLANG-WIN64-CLANGASM-ARM
         nmake
-        if %errorlevel% neq 0 ( exit 1)
+        if %errorlevel% neq 0 ( exit 1 )
         nmake test
-        if %errorlevel% neq 0 ( exit 1)
+        if %errorlevel% neq 0 ( exit 1 )
         call .github\workflows\scripts\benchmark.bat 2> benchmark.txt
-        if %errorlevel% neq 0 ( exit 1)
+        if %errorlevel% neq 0 ( exit 1 )
         type benchmark.txt
 
   build-openssl-linux-aarch64-gcc:
