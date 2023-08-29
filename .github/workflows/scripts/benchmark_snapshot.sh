@@ -3,7 +3,7 @@
 [ ! -d .github/benchmark_snapshot ] && mkdir -p .github/benchmark_snapshot
 branch=$(git symbolic-ref --short HEAD)
 benchmark_snapshot=$(date +".github/benchmark_snapshot/${branch}_%Y-%m-%d_%H_%M_%S_gcc_vs_clang.txt")
-.github/workflows/scripts/benchmark_cmp.sh benchmark_arm64_clangcl.txt benchmark_aarch64_gcc.txt > $benchmark_snapshot || exit -1
+. .github/workflows/scripts/benchmark_cmp.sh benchmark_arm64_clangcl.txt benchmark_aarch64_gcc.txt > $benchmark_snapshot || exit -1
 
 chart_payload="cht=bvg&chs=500x375&chtt=Perfromance%20ratio%20comparison&chma=30,30,30,30&chdlp=t&chco=4d89f9,c6d9fd&chbh=r,0,0&chxt=x,x,y&chxl=1:|Benchmark%20test%20%23&chxp=1,50&chds=a&chxs=2N*p&chdl=AArch64%20/%20Arm64%20Windows&chxr=0,0,247,48&chd=t:"
 chart_payload+=$(cat $benchmark_snapshot \
