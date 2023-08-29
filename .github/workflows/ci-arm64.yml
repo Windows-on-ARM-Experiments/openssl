@@ -141,7 +141,8 @@ jobs:
     if: ${{ inputs.benchmark_snapshot }}
     needs: [build-openssl-windows-arm64-clangcl, build-openssl-linux-aarch64-gcc]
 
-    runs-on: ubuntu-latest
+#    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, ARM64, GCC, D2ps_v5]
 
     steps:
     - name: Git checkout
