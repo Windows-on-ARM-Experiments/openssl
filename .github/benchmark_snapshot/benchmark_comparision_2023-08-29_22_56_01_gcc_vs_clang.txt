@@ -1,0 +1,294 @@
+1.915540 Doing md5 ops for 3s on 16 size blocks: 5501810 md5 ops in 3.02s	/	10434245 2.99s
+1.598221 Doing md5 ops for 3s on 64 size blocks: 4868966 md5 ops in 2.97s	/	7860289 3.00s
+1.341381 Doing md5 ops for 3s on 256 size blocks: 3267882 md5 ops in 3.02s	/	4354445 3.00s
+1.124551 Doing md5 ops for 3s on 1024 size blocks: 1404726 md5 ops in 3.02s	/	1569224 3.00s
+1.023159 Doing md5 ops for 3s on 8192 size blocks: 221851 md5 ops in 3.02s	/	224734 2.99s
+1.011355 Doing md5 ops for 3s on 16384 size blocks: 113144 md5 ops in 3.02s	/	113671 3.00s
+2.198799 Doing sha1 ops for 3s on 16 size blocks: 6234605 sha1 ops in 3.02s	/	13617856 3.00s
+2.019163 Doing sha1 ops for 3s on 64 size blocks: 6063738 sha1 ops in 3.02s	/	12162589 3.00s
+1.716532 Doing sha1 ops for 3s on 256 size blocks: 5034273 sha1 ops in 3.02s	/	8555646 2.99s
+1.325054 Doing sha1 ops for 3s on 1024 size blocks: 2956965 sha1 ops in 3.02s	/	3892190 3.00s
+1.056189 Doing sha1 ops for 3s on 8192 size blocks: 613589 sha1 ops in 3.02s	/	643774 3.00s
+1.030834 Doing sha1 ops for 3s on 16384 size blocks: 321735 sha1 ops in 3.02s	/	329459 3.00s
+2.333756 Doing sha256 ops for 3s on 16 size blocks: 6011829 sha256 ops in 3.02s	/	13937226 3.00s
+2.150162 Doing sha256 ops for 3s on 64 size blocks: 5853751 sha256 ops in 3.02s	/	12461484 2.99s
+1.803882 Doing sha256 ops for 3s on 256 size blocks: 4899024 sha256 ops in 3.02s	/	8778735 3.00s
+1.370460 Doing sha256 ops for 3s on 1024 size blocks: 2962571 sha256 ops in 3.02s	/	4033196 3.00s
+1.065253 Doing sha256 ops for 3s on 8192 size blocks: 632273 sha256 ops in 3.02s	/	669070 3.00s
+1.034032 Doing sha256 ops for 3s on 16384 size blocks: 333465 sha256 ops in 3.02s	/	342530 3.00s
+1.621973 Doing sha512 ops for 3s on 16 size blocks: 4062400 sha512 ops in 3.02s	/	6545467 3.00s
+1.629927 Doing sha512 ops for 3s on 64 size blocks: 4053038 sha512 ops in 3.02s	/	6562406 3.00s
+1.292911 Doing sha512 ops for 3s on 256 size blocks: 2410398 sha512 ops in 3.02s	/	3095791 3.00s
+1.118424 Doing sha512 ops for 3s on 1024 size blocks: 1071630 sha512 ops in 3.00s	/	1194542 2.99s
+1.023830 Doing sha512 ops for 3s on 8192 size blocks: 174316 sha512 ops in 3.02s	/	177288 3.00s
+1.015099 Doing sha512 ops for 3s on 16384 size blocks: 89176 sha512 ops in 3.02s	/	89923 3.00s
+1.636656 Doing rmd160 ops for 3s on 16 size blocks: 4953715 rmd160 ops in 3.02s	/	8053836 3.00s
+1.384024 Doing rmd160 ops for 3s on 64 size blocks: 4023490 rmd160 ops in 3.02s	/	5531730 3.00s
+1.134477 Doing rmd160 ops for 3s on 256 size blocks: 2490652 rmd160 ops in 3.02s	/	2806874 3.00s
+0.966040 Doing rmd160 ops for 3s on 1024 size blocks: 987724 rmd160 ops in 3.02s	/	944702 2.99s
+0.892396 Doing rmd160 ops for 3s on 8192 size blocks: 148752 rmd160 ops in 3.02s	/	131427 2.99s
+0.883242 Doing rmd160 ops for 3s on 16384 size blocks: 75534 rmd160 ops in 3.02s	/	66273 3.00s
+1.737348 Doing hmac(md5) ops for 3s on 16 size blocks: 4031828 hmac(md5) ops in 3.02s	/	6958299 3.00s
+1.592216 Doing hmac(md5) ops for 3s on 64 size blocks: 3620365 hmac(md5) ops in 3.02s	/	5726229 3.00s
+1.373959 Doing hmac(md5) ops for 3s on 256 size blocks: 2643202 hmac(md5) ops in 3.02s	/	3607601 3.00s
+1.153565 Doing hmac(md5) ops for 3s on 1024 size blocks: 1273928 hmac(md5) ops in 3.02s	/	1459827 3.00s
+1.026929 Doing hmac(md5) ops for 3s on 8192 size blocks: 218206 hmac(md5) ops in 3.02s	/	222598 3.00s
+1.014790 Doing hmac(md5) ops for 3s on 16384 size blocks: 112148 hmac(md5) ops in 3.02s	/	113053 3.00s
+1.080252 Doing des-ede3 ops for 3s on 16 size blocks: 5166431 des-ede3 ops in 3.02s	/	5544088 3.00s
+1.071355 Doing des-ede3 ops for 3s on 64 size blocks: 1331150 des-ede3 ops in 3.02s	/	1416689 3.00s
+1.069987 Doing des-ede3 ops for 3s on 256 size blocks: 335657 des-ede3 ops in 3.02s	/	356770 3.00s
+1.069703 Doing des-ede3 ops for 3s on 1024 size blocks: 84080 des-ede3 ops in 3.02s	/	89345 3.00s
+1.070356 Doing des-ede3 ops for 3s on 8192 size blocks: 10511 des-ede3 ops in 3.02s	/	11176 3.00s
+1.069051 Doing des-ede3 ops for 3s on 16384 size blocks: 5228 des-ede3 ops in 3.00s	/	5589 3.00s
+4.966245 Doing aes-128-cbc ops for 3s on 16 size blocks: 35690293 aes-128-cbc ops in 3.02s	/	175486001 2.99s
+7.505395 Doing aes-128-cbc ops for 3s on 64 size blocks: 11227448 aes-128-cbc ops in 3.02s	/	83708376 3.00s
+8.707570 Doing aes-128-cbc ops for 3s on 256 size blocks: 2975482 aes-128-cbc ops in 3.02s	/	25737634 3.00s
+9.048896 Doing aes-128-cbc ops for 3s on 1024 size blocks: 763784 aes-128-cbc ops in 3.02s	/	6842746 2.99s
+9.136596 Doing aes-128-cbc ops for 3s on 8192 size blocks: 96243 aes-128-cbc ops in 3.02s	/	873510 3.00s
+9.148891 Doing aes-128-cbc ops for 3s on 16384 size blocks: 48164 aes-128-cbc ops in 3.02s	/	437729 3.00s
+5.185514 Doing aes-192-cbc ops for 3s on 16 size blocks: 31964320 aes-192-cbc ops in 3.02s	/	164653723 3.00s
+7.547524 Doing aes-192-cbc ops for 3s on 64 size blocks: 9748826 aes-192-cbc ops in 3.02s	/	73092218 3.00s
+8.724062 Doing aes-192-cbc ops for 3s on 256 size blocks: 2512864 aes-192-cbc ops in 3.02s	/	21777201 3.00s
+8.721436 Doing aes-192-cbc ops for 3s on 1024 size blocks: 656190 aes-192-cbc ops in 3.02s	/	5685019 3.00s
+8.861720 Doing aes-192-cbc ops for 3s on 8192 size blocks: 82760 aes-192-cbc ops in 3.02s	/	728539 3.00s
+8.877680 Doing aes-192-cbc ops for 3s on 16384 size blocks: 41383 aes-192-cbc ops in 3.02s	/	364952 3.00s
+5.523235 Doing aes-256-cbc ops for 3s on 16 size blocks: 28755442 aes-256-cbc ops in 3.02s	/	157771243 3.00s
+7.527890 Doing aes-256-cbc ops for 3s on 64 size blocks: 8622194 aes-256-cbc ops in 3.02s	/	64477084 3.00s
+8.388503 Doing aes-256-cbc ops for 3s on 256 size blocks: 2258464 aes-256-cbc ops in 3.02s	/	18819667 3.00s
+8.597516 Doing aes-256-cbc ops for 3s on 1024 size blocks: 576497 aes-256-cbc ops in 3.02s	/	4923618 3.00s
+8.671196 Doing aes-256-cbc ops for 3s on 8192 size blocks: 72545 aes-256-cbc ops in 3.02s	/	624886 3.00s
+8.679941 Doing aes-256-cbc ops for 3s on 16384 size blocks: 36290 aes-256-cbc ops in 3.02s	/	312909 3.00s
+0.996374 Doing camellia-128-cbc ops for 3s on 16 size blocks: 23892381 camellia-128-cbc ops in 3.00s	/	23805756 3.00s
+0.916861 Doing camellia-128-cbc ops for 3s on 64 size blocks: 6902648 camellia-128-cbc ops in 3.02s	/	6286859 3.00s
+0.892017 Doing camellia-128-cbc ops for 3s on 256 size blocks: 1797951 camellia-128-cbc ops in 3.02s	/	1593182 3.00s
+0.881742 Doing camellia-128-cbc ops for 3s on 1024 size blocks: 457067 camellia-128-cbc ops in 3.02s	/	400346 3.00s
+0.877930 Doing camellia-128-cbc ops for 3s on 8192 size blocks: 57427 camellia-128-cbc ops in 3.02s	/	50083 3.00s
+0.879439 Doing camellia-128-cbc ops for 3s on 16384 size blocks: 28698 camellia-128-cbc ops in 3.02s	/	25071 3.00s
+0.968279 Doing camellia-192-cbc ops for 3s on 16 size blocks: 19553732 camellia-192-cbc ops in 3.02s	/	18808076 3.00s
+0.921898 Doing camellia-192-cbc ops for 3s on 64 size blocks: 5376080 camellia-192-cbc ops in 3.02s	/	4923377 3.00s
+0.903581 Doing camellia-192-cbc ops for 3s on 256 size blocks: 1385804 camellia-192-cbc ops in 3.02s	/	1243893 3.00s
+0.896172 Doing camellia-192-cbc ops for 3s on 1024 size blocks: 350793 camellia-192-cbc ops in 3.02s	/	312289 3.00s
+0.893697 Doing camellia-192-cbc ops for 3s on 8192 size blocks: 44029 camellia-192-cbc ops in 3.02s	/	39088 3.00s
+0.893738 Doing camellia-192-cbc ops for 3s on 16384 size blocks: 22018 camellia-192-cbc ops in 3.02s	/	19548 3.00s
+0.987869 Doing camellia-256-cbc ops for 3s on 16 size blocks: 19165189 camellia-256-cbc ops in 3.02s	/	18807310 3.00s
+0.921729 Doing camellia-256-cbc ops for 3s on 64 size blocks: 5377239 camellia-256-cbc ops in 3.02s	/	4923532 3.00s
+0.903801 Doing camellia-256-cbc ops for 3s on 256 size blocks: 1385270 camellia-256-cbc ops in 3.02s	/	1243717 3.00s
+0.891172 Doing camellia-256-cbc ops for 3s on 1024 size blocks: 348071 camellia-256-cbc ops in 2.98s	/	312273 3.00s
+0.893925 Doing camellia-256-cbc ops for 3s on 8192 size blocks: 44020 camellia-256-cbc ops in 3.02s	/	39090 3.00s
+0.893860 Doing camellia-256-cbc ops for 3s on 16384 size blocks: 22015 camellia-256-cbc ops in 3.02s	/	19548 3.00s
+4.062451 Doing ghash ops for 3s on 16 size blocks: 31819402 ghash ops in 3.02s	/	128408714 3.00s
+10.464100 Doing ghash ops for 3s on 64 size blocks: 10336863 ghash ops in 3.02s	/	107449639 3.00s
+18.610173 Doing ghash ops for 3s on 256 size blocks: 2765474 ghash ops in 3.02s	/	51125115 3.00s
+23.575830 Doing ghash ops for 3s on 1024 size blocks: 711443 ghash ops in 3.02s	/	16661781 3.00s
+25.645476 Doing ghash ops for 3s on 8192 size blocks: 89711 ghash ops in 3.02s	/	2285445 3.00s
+25.739809 Doing ghash ops for 3s on 16384 size blocks: 44917 ghash ops in 3.02s	/	1144670 2.99s
+2.015328 Doing rand ops for 3s on 16 size blocks: 2849181 rand ops in 3.02s	/	4639259 2.44s
+2.559332 Doing rand ops for 3s on 64 size blocks: 2267132 rand ops in 3.02s	/	4534282 2.36s
+4.008597 Doing rand ops for 3s on 256 size blocks: 1246915 rand ops in 3.02s	/	4170833 2.52s
+8.097891 Doing rand ops for 3s on 1024 size blocks: 447136 rand ops in 3.02s	/	3045358 2.54s
+14.355020 Doing rand ops for 3s on 8192 size blocks: 64050 rand ops in 3.02s	/	876816 2.88s
+15.365788 Doing rand ops for 3s on 16384 size blocks: 32388 rand ops in 3.02s	/	482836 2.93s
+1.095453 Doing 512 bits private rsa sign ops for 10s: 132030 512 bits private RSA sign ops in 10.02s	/	144344 10.00s
+1.214464 Doing 512 bits public rsa verify ops for 10s: 1389307 512 bits public RSA verify ops in 10.02s	/	1682211 9.99s
+1.290740 Doing 512 bits private rsa encrypt ops for 10s: 1168323 512 bits public RSA encrypt ops in 10.02s	/	1467367 9.75s
+1.186196 Doing 512 bits private rsa decrypt ops for 10s: 111850 512 bits private RSA decrypt ops in 10.00s	/	132676 10.00s
+1.030596 Doing 1024 bits private rsa sign ops for 10s: 24092 1024 bits private RSA sign ops in 10.02s	/	24730 9.98s
+1.069603 Doing 1024 bits public rsa verify ops for 10s: 451637 1024 bits public RSA verify ops in 10.02s	/	482108 10.00s
+1.117928 Doing 1024 bits private rsa encrypt ops for 10s: 414261 1024 bits public RSA encrypt ops in 10.02s	/	458030 9.91s
+1.048041 Doing 1024 bits private rsa decrypt ops for 10s: 23243 1024 bits private RSA decrypt ops in 10.02s	/	24311 10.00s
+1.013541 Doing 2048 bits private rsa sign ops for 10s: 3471 2048 bits private RSA sign ops in 10.00s	/	3518 10.00s
+1.021762 Doing 2048 bits public rsa verify ops for 10s: 125071 2048 bits public RSA verify ops in 9.95s	/	128435 10.00s
+1.052983 Doing 2048 bits private rsa encrypt ops for 10s: 120051 2048 bits public RSA encrypt ops in 10.00s	/	125906 9.96s
+1.017273 Doing 2048 bits private rsa decrypt ops for 10s: 3444 2048 bits private RSA decrypt ops in 9.98s	/	3507 9.99s
+1.009921 Doing 3072 bits private rsa sign ops for 10s: 1122 3072 bits private RSA sign ops in 10.02s	/	1132 10.01s
+1.011851 Doing 3072 bits public rsa verify ops for 10s: 68152 3072 bits public RSA verify ops in 10.02s	/	68822 10.00s
+1.032787 Doing 3072 bits private rsa encrypt ops for 10s: 66115 3072 bits public RSA encrypt ops in 10.02s	/	67942 9.97s
+1.012534 Doing 3072 bits private rsa decrypt ops for 10s: 1117 3072 bits private RSA decrypt ops in 10.00s	/	1131 10.00s
+1.009137 Doing 4096 bits private rsa sign ops for 10s: 492 4096 bits private RSA sign ops in 10.02s	/	496 10.01s
+1.007846 Doing 4096 bits public rsa verify ops for 10s: 40105 4096 bits public RSA verify ops in 10.02s	/	40339 10.00s
+1.025101 Doing 4096 bits private rsa encrypt ops for 10s: 39177 4096 bits public RSA encrypt ops in 10.02s	/	39960 9.97s
+1.008110 Doing 4096 bits private rsa decrypt ops for 10s: 492 4096 bits private RSA decrypt ops in 10.02s	/	495 10.00s
+1.005982 Doing 7680 bits private rsa sign ops for 10s: 97 7680 bits private RSA sign ops in 10.09s	/	97 10.03s
+1.003295 Doing 7680 bits public rsa verify ops for 10s: 12138 7680 bits public RSA verify ops in 10.00s	/	12178 10.00s
+1.012360 Doing 7680 bits private rsa encrypt ops for 10s: 12005 7680 bits public RSA encrypt ops in 10.02s	/	12117 9.99s
+1.005982 Doing 7680 bits private rsa decrypt ops for 10s: 97 7680 bits private RSA decrypt ops in 10.09s	/	97 10.03s
+1.004721 Doing 15360 bits private rsa sign ops for 10s: 14 15360 bits private RSA sign ops in 10.64s	/	14 10.59s
+1.002907 Doing 15360 bits public rsa verify ops for 10s: 3147 15360 bits public RSA verify ops in 10.02s	/	3153 10.01s
+1.006802 Doing 15360 bits private rsa encrypt ops for 10s: 3130 15360 bits public RSA encrypt ops in 10.02s	/	3145 10.00s
+1.003774 Doing 15360 bits private rsa decrypt ops for 10s: 14 15360 bits private RSA decrypt ops in 10.64s	/	14 10.60s
+1.088703 Doing 1024 bits sign dsa ops for 10s: 30263 1024 bits DSA sign ops in 10.02s	/	32783 9.97s
+1.051599 Doing 1024 bits verify dsa ops for 10s: 36626 1024 bits DSA verify ops in 10.02s	/	38439 10.00s
+1.028904 Doing 2048 bits sign dsa ops for 10s: 9255 2048 bits DSA sign ops in 10.02s	/	9494 9.99s
+1.009057 Doing 2048 bits verify dsa ops for 10s: 10048 2048 bits DSA verify ops in 10.00s	/	10139 10.00s
+1.367249 Doing 160 bits sign ecdsa ops for 10s: 26608 160 bits ECDSA sign ops in 10.00s	/	36307 9.98s
+1.410230 Doing 160 bits verify ecdsa ops for 10s: 27832 160 bits ECDSA verify ops in 10.02s	/	39132 9.99s
+1.366094 Doing 192 bits sign ecdsa ops for 10s: 21969 192 bits ECDSA sign ops in 10.02s	/	29832 9.96s
+1.411503 Doing 192 bits verify ecdsa ops for 10s: 23279 192 bits ECDSA verify ops in 10.02s	/	32760 9.99s
+1.257850 Doing 224 bits sign ecdsa ops for 10s: 14751 224 bits ECDSA sign ops in 10.02s	/	18499 9.99s
+1.295510 Doing 224 bits verify ecdsa ops for 10s: 16808 224 bits ECDSA verify ops in 10.02s	/	21688 9.98s
+1.144125 Doing 256 bits sign ecdsa ops for 10s: 199179 256 bits ECDSA sign ops in 10.02s	/	226521 9.96s
+1.033222 Doing 256 bits verify ecdsa ops for 10s: 64623 256 bits ECDSA verify ops in 10.02s	/	66570 9.99s
+1.131986 Doing 384 bits sign ecdsa ops for 10s: 4801 384 bits ECDSA sign ops in 9.98s	/	5451 10.01s
+1.170867 Doing 384 bits verify ecdsa ops for 10s: 5999 384 bits ECDSA verify ops in 10.02s	/	7003 9.99s
+1.067609 Doing 521 bits sign ecdsa ops for 10s: 1863 521 bits ECDSA sign ops in 10.02s	/	1983 9.99s
+1.088547 Doing 521 bits verify ecdsa ops for 10s: 2466 521 bits ECDSA verify ops in 10.02s	/	2679 10.00s
+1.408725 Doing 163 bits sign ecdsa ops for 10s: 18380 163 bits ECDSA sign ops in 10.02s	/	25789 9.98s
+1.400831 Doing 163 bits verify ecdsa ops for 10s: 9336 163 bits ECDSA verify ops in 10.02s	/	13039 9.99s
+1.300256 Doing 233 bits sign ecdsa ops for 10s: 13214 233 bits ECDSA sign ops in 10.02s	/	17113 9.98s
+1.298050 Doing 233 bits verify ecdsa ops for 10s: 6730 233 bits ECDSA verify ops in 10.02s	/	8701 9.98s
+1.265320 Doing 283 bits sign ecdsa ops for 10s: 6507 283 bits ECDSA sign ops in 10.02s	/	8217 10.00s
+1.266941 Doing 283 bits verify ecdsa ops for 10s: 3303 283 bits ECDSA verify ops in 10.02s	/	4168 9.98s
+1.223545 Doing 409 bits sign ecdsa ops for 10s: 3151 409 bits ECDSA sign ops in 10.02s	/	3840 9.98s
+1.220993 Doing 409 bits verify ecdsa ops for 10s: 1606 409 bits ECDSA verify ops in 10.02s	/	1957 10.00s
+1.267440 Doing 571 bits sign ecdsa ops for 10s: 1442 571 bits ECDSA sign ops in 10.02s	/	1824 10.00s
+1.265208 Doing 571 bits verify ecdsa ops for 10s: 735 571 bits ECDSA verify ops in 10.02s	/	929 10.01s
+1.417959 Doing 163 bits sign ecdsa ops for 10s: 17326 163 bits ECDSA sign ops in 10.02s	/	24494 9.99s
+1.411430 Doing 163 bits verify ecdsa ops for 10s: 8800 163 bits ECDSA verify ops in 10.02s	/	12371 9.98s
+1.305500 Doing 233 bits sign ecdsa ops for 10s: 12507 233 bits ECDSA sign ops in 10.02s	/	16279 9.99s
+1.300107 Doing 233 bits verify ecdsa ops for 10s: 6367 233 bits ECDSA verify ops in 10.02s	/	8253 9.99s
+1.256647 Doing 283 bits sign ecdsa ops for 10s: 6040 283 bits ECDSA sign ops in 10.02s	/	7575 10.00s
+1.255880 Doing 283 bits verify ecdsa ops for 10s: 3066 283 bits ECDSA verify ops in 10.02s	/	3839 9.99s
+1.216266 Doing 409 bits sign ecdsa ops for 10s: 2876 409 bits ECDSA sign ops in 10.02s	/	3491 10.00s
+1.214608 Doing 409 bits verify ecdsa ops for 10s: 1461 409 bits ECDSA verify ops in 10.02s	/	1771 10.00s
+1.259062 Doing 571 bits sign ecdsa ops for 10s: 1298 571 bits ECDSA sign ops in 10.02s	/	1631 10.00s
+1.260212 Doing 571 bits verify ecdsa ops for 10s: 661 571 bits ECDSA verify ops in 10.02s	/	833 10.02s
+1.256849 Doing 256 bits sign ecdsa ops for 10s: 13205 256 bits ECDSA sign ops in 10.02s	/	16547 9.99s
+1.252056 Doing 256 bits verify ecdsa ops for 10s: 14276 256 bits ECDSA verify ops in 10.02s	/	17803 9.98s
+1.255442 Doing 256 bits sign ecdsa ops for 10s: 13219 256 bits ECDSA sign ops in 10.02s	/	16546 9.99s
+1.282685 Doing 256 bits verify ecdsa ops for 10s: 14722 256 bits ECDSA verify ops in 10.02s	/	18846 10.00s
+1.129373 Doing 384 bits sign ecdsa ops for 10s: 4838 384 bits ECDSA sign ops in 10.02s	/	5453 10.00s
+1.151392 Doing 384 bits verify ecdsa ops for 10s: 5644 384 bits ECDSA verify ops in 10.02s	/	6479 9.99s
+1.131107 Doing 384 bits sign ecdsa ops for 10s: 4870 384 bits ECDSA sign ops in 10.02s	/	5492 9.99s
+1.166559 Doing 384 bits verify ecdsa ops for 10s: 6065 384 bits ECDSA verify ops in 10.02s	/	7054 9.99s
+1.089906 Doing 512 bits sign ecdsa ops for 10s: 2493 512 bits ECDSA sign ops in 10.02s	/	2709 9.99s
+1.088335 Doing 512 bits verify ecdsa ops for 10s: 3122 512 bits ECDSA verify ops in 10.02s	/	3391 10.00s
+1.088765 Doing 512 bits sign ecdsa ops for 10s: 2506 512 bits ECDSA sign ops in 10.02s	/	2723 10.00s
+1.109774 Doing 512 bits verify ecdsa ops for 10s: 3347 512 bits ECDSA verify ops in 10.02s	/	3707 10.00s
+1.370830 Doing 160 bits  ecdh ops for 10s: 28145 160-bits ECDH ops in 10.02s	/	38428 9.98s
+1.361503 Doing 192 bits  ecdh ops for 10s: 23134 192-bits ECDH ops in 10.00s	/	31497 10.00s
+1.259744 Doing 224 bits  ecdh ops for 10s: 15529 224-bits ECDH ops in 10.02s	/	19504 9.99s
+1.016388 Doing 256 bits  ecdh ops for 10s: 85051 256-bits ECDH ops in 10.02s	/	86186 9.99s
+1.134190 Doing 384 bits  ecdh ops for 10s: 5071 384-bits ECDH ops in 10.02s	/	5740 10.00s
+1.065695 Doing 521 bits  ecdh ops for 10s: 1965 521-bits ECDH ops in 10.02s	/	2092 10.01s
+1.402414 Doing 163 bits  ecdh ops for 10s: 19195 163-bits ECDH ops in 10.02s	/	26785 9.97s
+1.296424 Doing 233 bits  ecdh ops for 10s: 13892 233-bits ECDH ops in 10.02s	/	17956 9.99s
+1.259817 Doing 283 bits  ecdh ops for 10s: 6813 283-bits ECDH ops in 10.02s	/	8566 10.00s
+1.217254 Doing 409 bits  ecdh ops for 10s: 3324 409-bits ECDH ops in 10.02s	/	4030 9.98s
+1.256887 Doing 571 bits  ecdh ops for 10s: 1515 571-bits ECDH ops in 9.98s	/	1908 10.00s
+1.408510 Doing 163 bits  ecdh ops for 10s: 18076 163-bits ECDH ops in 10.02s	/	25384 9.99s
+1.299592 Doing 233 bits  ecdh ops for 10s: 13118 233-bits ECDH ops in 10.02s	/	16997 9.99s
+1.249485 Doing 283 bits  ecdh ops for 10s: 6305 283-bits ECDH ops in 10.00s	/	7878 10.00s
+1.207385 Doing 409 bits  ecdh ops for 10s: 3015 409-bits ECDH ops in 10.02s	/	3633 10.00s
+1.254858 Doing 571 bits  ecdh ops for 10s: 1362 571-bits ECDH ops in 10.02s	/	1704 9.99s
+1.261710 Doing 256 bits  ecdh ops for 10s: 13862 256-bits ECDH ops in 10.02s	/	17420 9.98s
+1.260662 Doing 256 bits  ecdh ops for 10s: 13866 256-bits ECDH ops in 10.02s	/	17428 9.99s
+1.132747 Doing 384 bits  ecdh ops for 10s: 5081 384-bits ECDH ops in 10.02s	/	5744 10.00s
+1.134384 Doing 384 bits  ecdh ops for 10s: 5115 384-bits ECDH ops in 10.02s	/	5785 9.99s
+1.090045 Doing 512 bits  ecdh ops for 10s: 2608 512-bits ECDH ops in 10.02s	/	2840 10.01s
+1.090210 Doing 512 bits  ecdh ops for 10s: 2624 512-bits ECDH ops in 10.02s	/	2855 10.00s
+1.862459 Doing 253 bits  ecdh ops for 10s: 40640 253-bits ECDH ops in 9.98s	/	75842 10.00s
+1.018349 Doing 448 bits  ecdh ops for 10s: 20715 448-bits ECDH ops in 10.02s	/	21053 10.00s
+2.464268 Doing 253 bits sign Ed25519 ops for 10s: 114599 253 bits Ed25519 sign ops in 10.02s	/	281839 10.00s
+2.480581 Doing 253 bits verify Ed25519 ops for 10s: 35391 253 bits Ed25519 verify ops in 10.02s	/	87615 10.00s
+1.225898 Doing 456 bits sign Ed448 ops for 10s: 21347 456 bits Ed448 sign ops in 10.02s	/	26117 10.00s
+1.006482 Doing 456 bits verify Ed448 ops for 10s: 18778 456 bits Ed448 verify ops in 10.02s	/	18862 10.00s
+1.266629 Doing 256 bits sign CurveSM2 ops for 10s: 13048 256 bits CurveSM2 sign ops in 10.02s	/	16461 9.98s
+1.288768 Doing 256 bits verify CurveSM2 ops for 10s: 15126 256 bits CurveSM2 verify ops in 10.02s	/	19455 10.00s
+1.005608 Doing 2048 bits  ffdh ops for 10s: 7498 2048-bits FFDH ops in 10.02s	/	7525 10.00s
+1.005645 Doing 3072 bits  ffdh ops for 10s: 3299 3072-bits FFDH ops in 10.02s	/	3311 10.00s
+1.004073 Doing 4096 bits  ffdh ops for 10s: 1628 4096-bits FFDH ops in 10.02s	/	1633 10.01s
+1.002965 Doing 6144 bits  ffdh ops for 10s: 756 6144-bits FFDH ops in 10.00s	/	759 10.01s
+1.003000 Doing 8192 bits  ffdh ops for 10s: 376 8192-bits FFDH ops in 10.03s	/	376 10.00s
+1.133663 Doing rsa512 keygen ops for 10s: 1679 rsa512 KEM keygen ops in 10.00s	/	1892 9.94s
+1.447648 Doing rsa512 encaps ops for 10s: 961970 rsa512 KEM encaps ops in 10.02s	/	1352289 9.73s
+1.100811 Doing rsa512 decaps ops for 10s: 131067 rsa512 KEM decaps ops in 10.02s	/	143992 10.00s
+1.023077 Doing rsa1024 keygen ops for 10s: 260 rsa1024 KEM keygen ops in 10.02s	/	266 10.02s
+1.140419 Doing rsa1024 encaps ops for 10s: 391387 rsa1024 KEM encaps ops in 10.02s	/	441445 9.91s
+1.030468 Doing rsa1024 decaps ops for 10s: 24066 rsa1024 KEM decaps ops in 10.02s	/	24725 9.99s
+0.965795 Doing rsa2048 keygen ops for 10s: 52 rsa2048 KEM keygen ops in 10.28s	/	49 10.03s
+1.068979 Doing rsa2048 encaps ops for 10s: 116950 rsa2048 KEM encaps ops in 10.02s	/	124518 9.98s
+1.010500 Doing rsa2048 decaps ops for 10s: 3471 rsa2048 KEM decaps ops in 9.97s	/	3518 10.00s
+0.966144 Doing rsa3072 keygen ops for 10s: 14 rsa3072 KEM keygen ops in 11.70s	/	12 10.38s
+1.044618 Doing rsa3072 encaps ops for 10s: 64858 rsa3072 KEM encaps ops in 10.02s	/	67549 9.99s
+1.008913 Doing rsa3072 decaps ops for 10s: 1122 rsa3072 KEM decaps ops in 10.00s	/	1132 10.00s
+1.640822 Doing rsa4096 keygen ops for 10s: 3 rsa4096 KEM keygen ops in 12.38s	/	4 10.06s
+1.031630 Doing rsa4096 encaps ops for 10s: 38646 rsa4096 KEM encaps ops in 10.02s	/	39749 9.99s
+1.006085 Doing rsa4096 decaps ops for 10s: 493 rsa4096 KEM decaps ops in 10.02s	/	496 10.02s
+0.162221 Doing rsa7680 keygen ops for 10s: 2 rsa7680 KEM keygen ops in 19.22s	/	1 59.24s
+1.012461 Doing rsa7680 encaps ops for 10s: 11973 rsa7680 KEM encaps ops in 10.02s	/	12098 10.00s
+1.004985 Doing rsa7680 decaps ops for 10s: 97 rsa7680 KEM decaps ops in 10.08s	/	97 10.03s
+0.693733 Doing rsa15360 keygen ops for 10s: 1 rsa15360 KEM keygen ops in 266.56s	/	1 384.24s
+1.007451 Doing rsa15360 encaps ops for 10s: 3125 rsa15360 KEM encaps ops in 10.02s	/	3142 10.00s
+1.002830 Doing rsa15360 decaps ops for 10s: 14 rsa15360 KEM decaps ops in 10.63s	/	14 10.60s
+1.475379 Doing ECP-256 keygen ops for 10s: 300057 ECP-256 KEM keygen ops in 10.02s	/	437396 9.90s
+1.059489 Doing ECP-256 encaps ops for 10s: 24558 ECP-256 KEM encaps ops in 10.02s	/	25967 10.00s
+1.048237 Doing ECP-256 decaps ops for 10s: 26872 ECP-256 KEM decaps ops in 10.02s	/	28112 10.00s
+1.139053 Doing ECP-384 keygen ops for 10s: 5030 ECP-384 KEM keygen ops in 10.02s	/	5718 10.00s
+1.149820 Doing ECP-384 encaps ops for 10s: 1593 ECP-384 KEM encaps ops in 10.00s	/	1828 9.98s
+1.156220 Doing ECP-384 decaps ops for 10s: 2326 ECP-384 KEM decaps ops in 10.02s	/	2684 10.00s
+1.069620 Doing ECP-521 keygen ops for 10s: 1956 ECP-521 KEM keygen ops in 10.02s	/	2088 10.00s
+1.079694 Doing ECP-521 encaps ops for 10s: 636 ECP-521 KEM encaps ops in 10.02s	/	686 10.01s
+1.080701 Doing ECP-521 decaps ops for 10s: 941 ECP-521 KEM decaps ops in 9.97s	/	1020 10.00s
+2.521667 Doing X25519 keygen ops for 10s: 107927 X25519 KEM keygen ops in 9.97s	/	271337 9.94s
+2.017939 Doing X25519 encaps ops for 10s: 28533 X25519 KEM encaps ops in 10.02s	/	57348 9.98s
+1.885194 Doing X25519 decaps ops for 10s: 39184 X25519 KEM decaps ops in 10.02s	/	73722 10.00s
+1.227315 Doing X448 keygen ops for 10s: 21539 X448 KEM keygen ops in 10.02s	/	26356 9.99s
+1.132494 Doing X448 encaps ops for 10s: 10366 X448 KEM encaps ops in 10.02s	/	11716 10.00s
+1.030939 Doing X448 decaps ops for 10s: 20169 X448 KEM decaps ops in 10.00s	/	20793 10.00s
+1.138485 Doing rsa512 keygen ops for 10s: 1674 rsa512 signature keygen ops in 10.02s	/	1883 9.90s
+1.094319 Doing rsa512 signs ops for 10s: 132143 rsa512 signature sign ops in 10.02s	/	144318 10.00s
+1.204879 Doing rsa512 verify ops for 10s: 1400218 rsa512 signature verify ops in 10.02s	/	1682042 9.99s
+1.019231 Doing rsa1024 keygen ops for 10s: 260 rsa1024 signature keygen ops in 10.03s	/	265 10.03s
+1.029811 Doing rsa1024 signs ops for 10s: 24095 rsa1024 signature sign ops in 10.02s	/	24739 9.99s
+1.061203 Doing rsa1024 verify ops for 10s: 455279 rsa1024 signature verify ops in 10.02s	/	482179 10.00s
+1.061050 Doing rsa2048 keygen ops for 10s: 50 rsa2048 signature keygen ops in 10.11s	/	53 10.10s
+1.016442 Doing rsa2048 signs ops for 10s: 3469 rsa2048 signature sign ops in 10.02s	/	3519 10.00s
+1.019971 Doing rsa2048 verify ops for 10s: 125930 rsa2048 signature verify ops in 10.00s	/	128445 10.00s
+1.250000 Doing rsa3072 keygen ops for 10s: 12 rsa3072 signature keygen ops in 10.16s	/	15 10.16s
+1.012845 Doing rsa3072 signs ops for 10s: 1121 rsa3072 signature sign ops in 10.02s	/	1132 9.99s
+1.013457 Doing rsa3072 verify ops for 10s: 68044 rsa3072 signature verify ops in 10.02s	/	68822 10.00s
+0.997295 Doing rsa4096 keygen ops for 10s: 4 rsa4096 signature keygen ops in 11.06s	/	4 11.09s
+1.008130 Doing rsa4096 signs ops for 10s: 492 rsa4096 signature sign ops in 10.02s	/	496 10.02s
+1.008424 Doing rsa4096 verify ops for 10s: 40089 rsa4096 signature verify ops in 10.02s	/	40346 10.00s
+0.878105 Doing rsa7680 keygen ops for 10s: 1 rsa7680 signature keygen ops in 18.91s	/	2 43.07s
+1.004985 Doing rsa7680 signs ops for 10s: 97 rsa7680 signature sign ops in 10.08s	/	97 10.03s
+1.004805 Doing rsa7680 verify ops for 10s: 12145 rsa7680 signature verify ops in 10.02s	/	12179 10.00s
+5.533539 Doing rsa15360 keygen ops for 10s: 1 rsa15360 signature keygen ops in 125.39s	/	1 22.66s
+1.002830 Doing rsa15360 signs ops for 10s: 14 rsa15360 signature sign ops in 10.63s	/	14 10.60s
+1.003911 Doing rsa15360 verify ops for 10s: 3146 rsa15360 signature verify ops in 10.02s	/	3152 10.00s
+1.053721 Doing dsa1024 keygen ops for 10s: 14622 dsa1024 signature keygen ops in 10.02s	/	15346 9.98s
+1.073769 Doing dsa1024 signs ops for 10s: 22869 dsa1024 signature sign ops in 10.02s	/	24458 9.98s
+1.076262 Doing dsa1024 verify ops for 10s: 30993 dsa1024 signature verify ops in 10.02s	/	33290 10.00s
+1.011429 Doing dsa2048 keygen ops for 10s: 4038 dsa2048 signature keygen ops in 10.02s	/	4076 10.00s
+1.024685 Doing dsa2048 signs ops for 10s: 7023 dsa2048 signature sign ops in 10.02s	/	7182 10.00s
+1.014147 Doing dsa2048 verify ops for 10s: 8837 dsa2048 signature verify ops in 9.98s	/	8971 9.99s
+1.699427 Doing sm3 ops for 3s on 16 size blocks: 4174391 sm3 ops in 3.02s	/	7047094 3.00s
+1.421275 Doing sm3 ops for 3s on 64 size blocks: 3257484 sm3 ops in 3.02s	/	4599120 3.00s
+1.230983 Doing sm3 ops for 3s on 256 size blocks: 1836499 sm3 ops in 3.02s	/	2245728 3.00s
+1.110585 Doing sm3 ops for 3s on 1024 size blocks: 668089 sm3 ops in 3.02s	/	737056 3.00s
+1.060236 Doing sm3 ops for 3s on 8192 size blocks: 96157 sm3 ops in 3.02s	/	101274 3.00s
+1.055154 Doing sm3 ops for 3s on 16384 size blocks: 48686 sm3 ops in 3.02s	/	51031 3.00s
+0.555717 Doing SM4-CBC ops for 3s on 16 size blocks: 17996825 SM4-CBC ops in 3.02s	/	9901797 2.99s
+0.527789 Doing SM4-CBC ops for 3s on 64 size blocks: 4879450 SM4-CBC ops in 3.02s	/	2558265 3.00s
+0.519877 Doing SM4-CBC ops for 3s on 256 size blocks: 1247297 SM4-CBC ops in 3.02s	/	644147 3.00s
+0.515752 Doing SM4-CBC ops for 3s on 1024 size blocks: 314803 SM4-CBC ops in 3.02s	/	161285 3.00s
+0.514463 Doing SM4-CBC ops for 3s on 8192 size blocks: 39481 SM4-CBC ops in 3.02s	/	20177 3.00s
+0.514397 Doing SM4-CBC ops for 3s on 16384 size blocks: 19744 SM4-CBC ops in 3.02s	/	10089 3.00s
+4.461054 Doing AES-128-GCM ops for 3s on 16 size blocks: 19273506 AES-128-GCM ops in 3.02s	/	85126038 2.99s
+10.539830 Doing AES-128-GCM ops for 3s on 64 size blocks: 5675349 AES-128-GCM ops in 3.02s	/	59421073 3.00s
+16.604217 Doing AES-128-GCM ops for 3s on 256 size blocks: 1457292 AES-128-GCM ops in 3.02s	/	24036946 3.00s
+21.153846 Doing AES-128-GCM ops for 3s on 1024 size blocks: 369778 AES-128-GCM ops in 3.02s	/	7770424 3.00s
+23.463292 Doing AES-128-GCM ops for 3s on 8192 size blocks: 46433 AES-128-GCM ops in 3.02s	/	1082256 3.00s
+23.714465 Doing AES-128-GCM ops for 3s on 16384 size blocks: 23173 AES-128-GCM ops in 3.02s	/	545896 3.00s
+4.456006 Doing AES-192-GCM ops for 3s on 16 size blocks: 18092439 AES-192-GCM ops in 3.02s	/	79819157 2.99s
+10.521798 Doing AES-192-GCM ops for 3s on 64 size blocks: 5261458 AES-192-GCM ops in 3.02s	/	54993378 3.00s
+16.403785 Doing AES-192-GCM ops for 3s on 256 size blocks: 1354043 AES-192-GCM ops in 3.02s	/	22064335 3.00s
+20.885440 Doing AES-192-GCM ops for 3s on 1024 size blocks: 342348 AES-192-GCM ops in 3.02s	/	7102737 3.00s
+23.160048 Doing AES-192-GCM ops for 3s on 8192 size blocks: 43027 AES-192-GCM ops in 3.02s	/	989908 3.00s
+23.343428 Doing AES-192-GCM ops for 3s on 16384 size blocks: 21516 AES-192-GCM ops in 3.02s	/	498931 3.00s
+4.607602 Doing AES-256-GCM ops for 3s on 16 size blocks: 17014270 AES-256-GCM ops in 3.02s	/	77875817 3.00s
+10.606193 Doing AES-256-GCM ops for 3s on 64 size blocks: 4921610 AES-256-GCM ops in 3.02s	/	51853851 3.00s
+16.259064 Doing AES-256-GCM ops for 3s on 256 size blocks: 1261579 AES-256-GCM ops in 3.02s	/	20376252 3.00s
+20.189661 Doing AES-256-GCM ops for 3s on 1024 size blocks: 319399 AES-256-GCM ops in 3.02s	/	6405852 3.00s
+22.031109 Doing AES-256-GCM ops for 3s on 8192 size blocks: 40055 AES-256-GCM ops in 3.02s	/	876612 3.00s
+22.186437 Doing AES-256-GCM ops for 3s on 16384 size blocks: 20022 AES-256-GCM ops in 3.02s	/	441275 3.00s
