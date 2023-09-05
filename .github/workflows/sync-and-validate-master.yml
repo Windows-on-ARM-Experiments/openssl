@@ -8,7 +8,7 @@ on:
 jobs:
   sync-master:
     name: Sync master
-    needs: [validate-arm64-windows]
+    needs: validate-arm64-windows
     runs-on: ubuntu-latest
 
     steps:
@@ -26,9 +26,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   validate-arm64-windows:
-    needs: [sync-master-verification]
     name: Valitate the latest Arm64 Windows build
-    needs: sync-fork
+    needs: validate-arm64-windows
     uses: ./.github/workflows/ci-arm64.yml
     with:
       branch: master-verification
