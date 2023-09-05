@@ -27,7 +27,7 @@ jobs:
 
   validate-arm64-windows:
     name: Valitate the latest Arm64 Windows build
-    needs: validate-arm64-windows
+    needs: sync-master-verification
     uses: ./.github/workflows/ci-arm64.yml
     with:
       branch: master-verification
