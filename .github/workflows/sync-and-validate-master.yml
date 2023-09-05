@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - run: gh repo sync Windows-on-ARM-Experiments/openssl -b master
+      - run: gh repo sync Windows-on-ARM-Experiments/openssl -b 75ac8f04b78e9e1283b0402a791728ba2728e159
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
