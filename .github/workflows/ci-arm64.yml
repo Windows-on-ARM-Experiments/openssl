@@ -165,14 +165,17 @@ jobs:
         git config --global user.email "$GITHUB_ACTOR@users.noreply.github.com"
         git fetch origin ${{ github.event.repository.default_branch }}
         git checkout origin/${{ github.event.repository.default_branch }} -- .github/workflows/scripts
-        . .github/workflows/scripts/benchmark_snapshot.sh
-        benchmark_asset=$(date +".assets/benchmark_snapshot_%Y-%m-%d_%H_%M_%S_gcc_vs_clangcl.png")
-        [ ! -d .assets ] && mkdir .assets
-        mv benchmark_snapshot_gcc_vs_clangcl.png $benchmark_asset
+        branch=${{ inputs.branch }}
+        [[ -z $branch ]] && branch=$(git symbolic-ref --short HEAD)
+        [ ! -d .github/benchmark_snapshot ] && mkdir -p .github/benchmark_snapshot
+        benchmark_snapshot_result=$(date +".github/benchmark_snapshot/${branch}_%Y-%m-%d_%H_%M_%S_gcc_vs_clang.txt")
+        [ ! -d .assets/benchmark ] && mkdir -p .assets/benchmark
+        benchmark_image=$(date +".assets/benchmark/benchmark_snapshot_%Y-%m-%d_%H_%M_%S_gcc_vs_clangcl.png")
+        . .github/workflows/scripts/benchmark.sh benchmark_snapshot $benchmark_snapshot_result $benchmark_image
         git restore .github/workflows/scripts
         git fetch origin assets
         git checkout assets
-        git add $benchmark_asset
+        git add $benchmark_image
         git commit -am "* add a benchmark image"
         git push
         git checkout ${{ github.event.repository.default_branch }} --
@@ -187,5 +190,5 @@ jobs:
             "head": "benchmark_snapshot",
             "base": "${{ github.event.repository.default_branch }}"
           }' \
-          https://api.github.com/repos/$GITHUB_REPOSITORY/pulls/7)
+          https://api.github.com/repos/$GITHUB_REPOSITORY/pulls)
         echo "$PR_RESPONSE"
