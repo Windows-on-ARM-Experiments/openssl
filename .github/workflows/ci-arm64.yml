@@ -24,6 +24,11 @@ on:
         required: false
         default: true
         type: boolean
+      benchmark:
+        description: 'Execute benchmark'
+        required: false
+        default: true
+        type: boolean
       benchmark_snapshot:
         description: 'Create benchmark snapshot'
         required: false
@@ -66,7 +71,7 @@ jobs:
 
     - name: Archive openssl_windows_arm64_msvc_benchmark.zip
       uses: actions/upload-artifact@v3
-      if: ${{ inputs.benchmark_snapshot }}
+      if: ${{ inputs.benchmark} || ${{ inputs.benchmark_snapshot }}
       with:
         name: openssl_windows_arm64_msvc_benchmark.zip
         path: benchmark_arm64_msvc.txt
@@ -101,7 +106,7 @@ jobs:
 
     - name: Archive openssl_windows_arm64_clangcl_benchmark.zip
       uses: actions/upload-artifact@v3
-      if: ${{ inputs.benchmark_snapshot }}
+      if: ${{ inputs.benchmark} || ${{ inputs.benchmark_snapshot }}
       with:
         name: openssl_windows_arm64_clangcl_benchmark.zip
         path: benchmark_arm64_clangcl.txt
@@ -131,7 +136,7 @@ jobs:
 
     - name: Archive openssl_linux_aarch64_gcc_benchmark.zip
       uses: actions/upload-artifact@v3
-      if: ${{ inputs.benchmark_snapshot }}
+      if: ${{ inputs.benchmark} || ${{ inputs.benchmark_snapshot }}
       with:
         name: openssl_linux_aarch64_gcc_benchmark.zip
         path: benchmark_aarch64_gcc.txt
