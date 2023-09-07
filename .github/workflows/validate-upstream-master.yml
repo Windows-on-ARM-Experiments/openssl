@@ -1,4 +1,4 @@
-name: Valitate upstream master branch on Arm64 Windows
+name: New Valitate upstream master branch on Arm64 Windows
 
 on:
   workflow_dispatch:
