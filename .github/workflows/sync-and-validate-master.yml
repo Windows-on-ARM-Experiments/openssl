@@ -16,8 +16,11 @@ jobs:
       env:
         upstream_head_hash : ${{ env.upstream_head_hash }}
 
+    - name: Test
+      run: echo $upstream_head_hash
+
     - name: Valitate upstream master Arm64 Windows build
       uses: ./.github/workflows/ci-arm64.yml
       with:
-        repository: openssl/openssl
+        repo: openssl/openssl
         branch: ${{ env.upstream_head_hash }}
