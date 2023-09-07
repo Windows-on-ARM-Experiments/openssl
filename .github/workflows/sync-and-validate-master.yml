@@ -20,4 +20,4 @@ jobs:
     needs: sync-fork
     uses: ./.github/workflows/ci-arm64.yml
     with:
-      branch: ${{ github.ref }}
+      branch: master
