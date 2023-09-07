@@ -11,9 +11,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - run: gh repo sync Windows-on-ARM-Experiments/openssl -b master
+      - run: gh repo sync -b master
         env:
-          GH_PAT: ${{ secrets.GH_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   validate-arm64-windows:
     name: Valitate the latest Arm64 Windows build
