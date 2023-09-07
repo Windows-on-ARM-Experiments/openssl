@@ -26,6 +26,11 @@ on:
         type: boolean
   workflow_call:
     inputs:
+      repository: 
+        description: 'Repository name'
+        required: false
+        default: ${{ github.repository }}
+        type: string
       branch:
         description: 'Branch name'
         required: false
