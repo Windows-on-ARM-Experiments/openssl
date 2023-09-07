@@ -14,6 +14,7 @@ jobs:
       - run: gh repo sync -b master
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: Windows-on-ARM-Experiments/openssl
 
   validate-arm64-windows:
     name: Valitate the latest Arm64 Windows build
