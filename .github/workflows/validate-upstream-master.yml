@@ -11,12 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      name: Getting upstream head hash
+    - name: Getting upstream head hash
       run: upstream_head_hash=$(git ls-remote https://github.com/openssl/openssl.git master | awk '{print $1}')
       env:
         upstream_head_hash : ${{ env.upstream_head_hash }}
 
-      name: Valitate upstream master Arm64 Windows build
+    - name: Valitate upstream master Arm64 Windows build
       uses: ./.github/workflows/ci-arm64.yml
       with:
         repository: openssl/openssl
