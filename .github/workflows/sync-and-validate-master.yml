@@ -6,20 +6,10 @@ on:
     - cron: "0 3 * * *"
 
 jobs:
-  sync-fork:
-    name: Sync master
-    runs-on: ubuntu-latest
-    permissions:
-      repo: write
-
-    steps:
-      - run: gh repo sync Windows-on-ARM-Experiments/openssl -b master
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   validate-arm64-windows:
-    name: Valitate the latest Arm64 Windows build
-    needs: sync-fork
+    name: Valitate upstream master Arm64 Windows build
     uses: ./.github/workflows/ci-arm64.yml
     with:
+      repository: openssl/openssl
       branch: master

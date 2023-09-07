@@ -5,6 +5,11 @@ on:
     branches: [ "dev" ]
   workflow_dispatch:
     inputs:
+      repository: 
+        description: 'Repository name'
+        required: false
+        default: ${{ github.repository }}
+        type: string
       branch:
         description: 'Branch name'
         required: false
@@ -35,6 +40,7 @@ jobs:
     - name: Git checkout
       uses: actions/checkout@v3
       with:
+        repository: ${{ inputs.repository }} 
         ref: ${{ inputs.branch }}
     
     - name: Build OpenSSL on Windows Arm64 with MSVC
@@ -63,6 +69,7 @@ jobs:
     - name: Git checkout
       uses: actions/checkout@v3
       with:
+        repository: ${{ inputs.repository }} 
         ref: ${{ inputs.branch }}
 
     - name: Build OpenSSL on Windows Arm64 with clang-cl
@@ -91,6 +98,7 @@ jobs:
     - name: Git checkout
       uses: actions/checkout@v3
       with:
+        repository: ${{ inputs.repository }} 
         ref: ${{ inputs.branch }}
 
     - name: Build OpenSSL on Linux AArch64 with GCC
