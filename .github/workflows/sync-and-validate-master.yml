@@ -12,9 +12,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - run: gh repo sync Windows-on-ARM-Experiments/openssl -b master
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          gh auth login --with-token ${{ secrets.GITHUB_TOKEN }}
+          gh repo sync Windows-on-ARM-Experiments/openssl -b master
 
   validate-arm64-windows:
     name: Valitate the latest Arm64 Windows build
