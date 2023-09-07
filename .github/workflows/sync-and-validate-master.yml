@@ -8,13 +8,12 @@ on:
 jobs:
   sync-fork:
     name: Sync master
-    permissions: write-all
     runs-on: ubuntu-latest
 
     steps:
-      - run: |
-          gh auth login --debug --with-token ${{ secrets.GITHUB_TOKEN }}
-          gh repo sync Windows-on-ARM-Experiments/openssl -b master
+      - run: gh repo sync Windows-on-ARM-Experiments/openssl -b master
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
 
   validate-arm64-windows:
     name: Valitate the latest Arm64 Windows build
