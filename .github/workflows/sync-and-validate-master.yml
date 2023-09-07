@@ -9,7 +9,8 @@ jobs:
   sync-fork:
     name: Sync master
     runs-on: ubuntu-latest
-    permissions: write-all
+    permissions:
+      repo: write
 
     steps:
       - run: gh repo sync Windows-on-ARM-Experiments/openssl -b master
