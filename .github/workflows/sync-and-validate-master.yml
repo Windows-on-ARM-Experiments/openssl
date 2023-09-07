@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - run: |
-          gh auth login --with-token ${{ secrets.GITHUB_TOKEN }}
+          gh auth login --debug --with-token ${{ secrets.GITHUB_TOKEN }}
           gh repo sync Windows-on-ARM-Experiments/openssl -b master
 
   validate-arm64-windows:
