@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       upstream_head_hash: ${{ steps.get_upstream_hash.outputs.upstream_head_hash }}
-\
+      
     steps:
     - name: Getting upstream the head hash
       id: get_upstream_hash
