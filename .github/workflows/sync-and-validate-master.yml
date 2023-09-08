@@ -12,15 +12,13 @@ jobs:
     
     steps:
     - name: Getting upstream head hash
-      run: upstream_head_hash=$(git ls-remote https://github.com/openssl/openssl.git master | awk '{print $1}')
-      env:
-        upstream_head_hash : ${{ env.upstream_head_hash }}
+      run: echo "upstream_head_hash=$(git ls-remote https://github.com/openssl/openssl.git master | awk '{print $1}')" >> $GITHUB_ENV
 
     - name: Test
       run: echo $upstream_head_hash
 
     - name: Valitate upstream master Arm64 Windows build
-      uses: ./.github/workflows/ci-arm64.yml
+      uses: Windows-on-ARM-Experiments/openssl/.github/workflows/ci-arm64.yml
       with:
-        repo: openssl/openssl
+        repository: openssl/openssl
         branch: ${{ env.upstream_head_hash }}
