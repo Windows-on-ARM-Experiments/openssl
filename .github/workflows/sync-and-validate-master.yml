@@ -5,9 +5,10 @@ on:
   schedule:
     - cron: "0 3 * * *"
 
+env:
+  upstream_head_hash: 
+
 jobs:
-  env:
-    upstream_head_hash: 
 
   get-upstream-head-hash:
     runs-on: ubuntu-latest
