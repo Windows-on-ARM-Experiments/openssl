@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       upstream_head_hash: ${{ steps.get_upstream_hash.outputs.upstream_head_hash }}
-      
+
     steps:
     - name: Getting upstream the head hash
       id: get_upstream_hash
@@ -23,4 +23,4 @@ jobs:
     uses: ./.github/workflows/ci-arm64.yml
     with:
       repository: openssl/openssl
-      branch: ${{ needs.get-upstream-head-hash.output.upstream_head_hash }}
+      branch: ${{ needs.get-upstream-head-hash.outputs.upstream_head_hash }}
