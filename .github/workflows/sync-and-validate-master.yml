@@ -6,7 +6,7 @@ on:
     - cron: "0 3 * * *"
 
 env:
-  upstream_head_hash: 
+  upstream_head_hash: master 
 
 jobs:
 
