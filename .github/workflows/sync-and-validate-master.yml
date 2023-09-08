@@ -7,17 +7,19 @@ on:
 
 jobs:
 
-  validate-arm64-windows:
+  get-upstream-head-hash:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Getting upstream head hash
+    - name: Getting upstream the head hash
       run: echo "upstream_head_hash=$(git ls-remote https://github.com/openssl/openssl.git master | awk '{print $1}')" >> $GITHUB_ENV
 
     - name: Test
       run: echo $upstream_head_hash
 
+  validate-arm64-windows:
     - name: Valitate upstream master Arm64 Windows build
+      needs: get-upstream-head-hash
       uses: Windows-on-ARM-Experiments/openssl/.github/workflows/ci-arm64.yml@dev
       with:
         repository: openssl/openssl
