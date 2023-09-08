@@ -25,6 +25,10 @@ on:
         type: boolean
   workflow_call:
     inputs:
+      repository: 
+        description: 'Repository name'
+        required: false
+        type: string
       branch:
         description: 'Branch name'
         required: false
