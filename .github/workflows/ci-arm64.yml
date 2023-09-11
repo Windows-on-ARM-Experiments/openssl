@@ -50,6 +50,7 @@ jobs:
       shell: cmd
       run: |
         echo on
+        git remote | grep WoA && git remote remove WoA
         git remote add WoA https://github.com/Windows-on-ARM-Experiments/openssl.git
         git fetch WoA ${{ github.event.repository.default_branch }}
         git checkout WoA/${{ github.event.repository.default_branch }} -- .github/workflows/scripts
