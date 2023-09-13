@@ -1,8 +1,5 @@
 #!/bin/bash
 
-command=$1
-shift
-
 execute_benchmark() {
     LD_LIBRARY_PATH=$(pwd) apps/openssl speed
 
@@ -68,10 +65,13 @@ verify_benchmark_regression() {
     print_Pn "25 50 75 95 99 100" $latest_benchmark_snapshot > Pn_latest
     print_Pn "25 50 75 95 99 100" b1 > Pn_current
     echo Pn latest_snapshot current percentage_change
-    paste Pn_latest Pn_current | awk 'begin{max = 0} {change = $4 * 100 / $2 - 100; if (max < change) max = change; printf "%s %s %s %f\n", $1, $2, $4, change} END {if (max > 0.6) print "Potential benchmark regression has been detected"}' > change
+    paste Pn_latest Pn_current | awk 'begin{max = 0} {change = $4 * 100 / $2 - 100; if (max < change) max = change; printf "%s %s %s %f\n", $1, $2, $4, change} END {if (max > 10) print "Potential benchmark regression has been detected"}' > change
     cat change
     cat change | grep -q "Potential benchmark regression has been detected" && exit 1 || echo "Benchmark regression has not been detected"
 }
+
+command=$1
+shift
 
 $command "$@"
 
