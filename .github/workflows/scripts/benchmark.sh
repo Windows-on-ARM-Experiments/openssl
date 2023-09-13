@@ -57,5 +57,21 @@ benchmark_snapshot() {
     curl -X POST -d "$chart_payload" https://chart.googleapis.com/chart > $benchmark_image
 }
 
+get_latest_benchmark_snapshot () {
+    echo .github/benchmark_snapshot/$(ls .github/benchmark_snapshot | sort -r -k 1 | head -n 1)
+}
+
+verify_benchmark_regression() {
+    benchmark_cmp benchmark_arm64_clangcl.txt benchmark_aarch64_gcc.txt > b1 || exit -1
+    latest_benchmark_snapshot=$(get_latest_benchmark_snapshot)
+    echo The latest benchmark snapshot: $latest_benchmark_snapshot
+    print_Pn "25 50 75 95 99 100" $latest_benchmark_snapshot > Pn_latest
+    print_Pn "25 50 75 95 99 100" b1 > Pn_current
+    echo Pn latest_snapshot current percentage_change
+    paste Pn_latest Pn_current | awk 'begin{max = 0} {change = $4 * 100 / $2 - 100; if (max < change) max = change; printf "%s %s %s %f\n", $1, $2, $4, change} END {if (max > 0.6) print "Potential benchmark regression has been detected"}' > change
+    cat change
+    cat change | grep -q "Potential benchmark regression has been detected" && exit 1 || echo "Benchmark regression has not been detected"
+}
+
 $command "$@"
 

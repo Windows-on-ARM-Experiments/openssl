@@ -29,6 +29,11 @@ on:
         required: false
         default: true
         type: boolean
+      verify_benchmark:
+        description: 'Verify benchmark regression'
+        required: false
+        default: true
+        type: boolean
       benchmark_snapshot:
         description: 'Create benchmark snapshot'
         required: false
@@ -142,12 +147,38 @@ jobs:
         path: benchmark_aarch64_gcc.txt
         retention-days: 3
 
+  verify-benchmark-regression:
+    if: ${{ inputs.verify_benchmark }}
+    needs: [build-openssl-windows-arm64-clangcl, build-openssl-linux-aarch64-gcc]
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Git checkout
+      uses: actions/checkout@v3
+
+    - name: Dowload openssl_linux_aarch64_gcc_benchmark.zip
+      uses: actions/download-artifact@v3
+      with:
+        name: openssl_linux_aarch64_gcc_benchmark.zip
+
+    - name: Dowload openssl_windows_arm64_clangcl_benchmark.zip
+      uses: actions/download-artifact@v3
+      with:
+        name: openssl_windows_arm64_clangcl_benchmark.zip
+
+    - name: Verify benchmark regression
+      run: |
+        set -x
+        git fetch origin ${{ github.event.repository.default_branch }}
+        git checkout origin/${{ github.event.repository.default_branch }} -- .github/workflows/scripts
+        . .github/workflows/scripts/benchmark.sh verify_benchmark_regression
+
   create-benchmark-snapshot:
     if: ${{ inputs.benchmark_snapshot }}
     needs: [build-openssl-windows-arm64-clangcl, build-openssl-linux-aarch64-gcc]
 
-#    runs-on: ubuntu-latest
-    runs-on: [self-hosted, Linux, ARM64, GCC, D2ps_v5]
+    runs-on: ubuntu-latest
 
     steps:
     - name: Git checkout
