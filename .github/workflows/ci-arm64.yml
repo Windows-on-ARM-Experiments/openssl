@@ -5,6 +5,10 @@ on:
     branches: [ "dev" ]
   workflow_dispatch:
     inputs:
+      repository: 
+        description: 'Repository name'
+        required: false
+        type: string
       branch:
         description: 'Branch name'
         required: false
@@ -41,6 +45,10 @@ on:
         type: boolean
   workflow_call:
     inputs:
+      repository: 
+        description: 'Repository name'
+        required: false
+        type: string
       branch:
         description: 'Branch name'
         required: false
@@ -57,21 +65,26 @@ jobs:
     - name: Git checkout
       uses: actions/checkout@v3
       with:
+        repository: ${{ inputs.repository }} 
         ref: ${{ inputs.branch }}
     
     - name: Build OpenSSL on Windows Arm64 with MSVC
       shell: cmd
       run: |
         echo on
-        git fetch origin ${{ github.event.repository.default_branch }}
-        git checkout origin/${{ github.event.repository.default_branch }} -- .github/workflows/scripts
+        git remote add WoA https://github.com/Windows-on-ARM-Experiments/openssl.git
+        git fetch WoA ${{ github.event.repository.default_branch }}
+        git checkout WoA/${{ github.event.repository.default_branch }} -- .github/workflows/scripts
         call "%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" arm64
         set VSCMD_DEBUG=3
         set PATH=%PATH%;%VCINSTALLDIR%\Tools\Llvm\ARM64\bin
         perl Configure VC-WIN64-ARM
         nmake
+        if %errorlevel% neq 0 ( exit 1 )
         nmake test
+        if %errorlevel% neq 0 ( exit 1 )
         call .github\workflows\scripts\benchmark.bat 2> benchmark_arm64_msvc.txt
+        if %errorlevel% neq 0 ( exit 1 )
         type benchmark_arm64_msvc.txt
 
     - name: Archive openssl_windows_arm64_msvc_benchmark.zip
@@ -92,21 +105,26 @@ jobs:
     - name: Git checkout
       uses: actions/checkout@v3
       with:
+        repository: ${{ inputs.repository }} 
         ref: ${{ inputs.branch }}
 
     - name: Build OpenSSL on Windows Arm64 with clang-cl
       shell: cmd
       run: |
         echo on
-        git fetch origin ${{ github.event.repository.default_branch }}
-        git checkout origin/${{ github.event.repository.default_branch }} -- .github/workflows/scripts
+        git remote add WoA https://github.com/Windows-on-ARM-Experiments/openssl.git
+        git fetch WoA ${{ github.event.repository.default_branch }}
+        git checkout WoA/${{ github.event.repository.default_branch }} -- .github/workflows/scripts
         call "%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" arm64
         set VSCMD_DEBUG=3
         set PATH=%PATH%;%VCINSTALLDIR%\Tools\Llvm\ARM64\bin
         perl Configure VC-CLANG-WIN64-CLANGASM-ARM
         nmake
+        if %errorlevel% neq 0 ( exit 1 )
         nmake test
+        if %errorlevel% neq 0 ( exit 1 )
         call .github\workflows\scripts\benchmark.bat 2> benchmark_arm64_clangcl.txt
+        if %errorlevel% neq 0 ( exit 1 )
         type benchmark_arm64_clangcl.txt
 
     - name: Archive openssl_windows_arm64_clangcl_benchmark.zip
@@ -127,12 +145,15 @@ jobs:
     - name: Git checkout
       uses: actions/checkout@v3
       with:
+        repository: ${{ inputs.repository }} 
         ref: ${{ inputs.branch }}
 
     - name: Build OpenSSL on Linux AArch64 with GCC
       run: |
-        git fetch origin ${{ github.event.repository.default_branch }}
-        git checkout origin/${{ github.event.repository.default_branch }} -- .github/workflows/scripts
+        git remote | grep WoA && git remote remove WoA
+        git remote add WoA https://github.com/Windows-on-ARM-Experiments/openssl.git
+        git fetch WoA ${{ github.event.repository.default_branch }}
+        git checkout WoA/${{ github.event.repository.default_branch }} -- .github/workflows/scripts
         ./Configure
         make
         make test
