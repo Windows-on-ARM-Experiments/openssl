@@ -192,7 +192,6 @@ jobs:
       run: |
         set -x
         git fetch origin ${{ github.event.repository.default_branch }}
-        git checkout origin/${{ github.event.repository.default_branch }} -- .github/workflows/scripts
         . .github/workflows/scripts/benchmark.sh verify_benchmark_regression
 
   create-benchmark-snapshot:
