@@ -14,14 +14,34 @@ on:
         required: false
         type: string
       openssl_windows_arm64_msvc_build:
-        description: 'OpenSSL Windows Arm64 MSVC'
+        description: 'OpenSSL Windows Arm64 MSVC build'
         required: false
         default: true
         type: boolean
       openssl_windows_arm64_clangcl_build:
-        description: 'OpenSSL Windows Arm64 clang-cl'
+        description: 'OpenSSL Windows Arm64 clang-cl build'
         required: false
         default: true
+        type: boolean
+      openssl_linux_aarch64_gcc_build:
+        description: 'OpenSSL Linux AArch64 gcc build'
+        required: false
+        default: true
+        type: boolean
+      benchmark:
+        description: 'Execute benchmark'
+        required: false
+        default: true
+        type: boolean
+      verify_benchmark:
+        description: 'Verify benchmark regression'
+        required: false
+        default: true
+        type: boolean
+      benchmark_snapshot:
+        description: 'Create benchmark snapshot'
+        required: false
+        default: false
         type: boolean
   workflow_call:
     inputs:
@@ -36,6 +56,8 @@ on:
 
 jobs:
   build-openssl-windows-arm64-msvc:
+    if: ${{ inputs.openssl_windows_arm64_msvc_build }}
+
     runs-on: [self-hosted, Windows, ARM64, GCC, D2ps_v5]
     timeout-minutes: 600
 
@@ -61,11 +83,21 @@ jobs:
         if %errorlevel% neq 0 ( exit 1 )
         nmake test
         if %errorlevel% neq 0 ( exit 1 )
-        call .github\workflows\scripts\benchmark.bat 2> benchmark.txt
+        call .github\workflows\scripts\benchmark.bat 2> benchmark_arm64_msvc.txt
         if %errorlevel% neq 0 ( exit 1 )
-        type benchmark.txt
+        type benchmark_arm64_msvc.txt
+
+    - name: Archive openssl_windows_arm64_msvc_benchmark.zip
+      uses: actions/upload-artifact@v3
+      if: ${{ inputs.benchmark }} || ${{ inputs.benchmark_snapshot }}
+      with:
+        name: openssl_windows_arm64_msvc_benchmark.zip
+        path: benchmark_arm64_msvc.txt
+        retention-days: 3
 
   build-openssl-windows-arm64-clangcl:
+    if: ${{ inputs.openssl_windows_arm64_clangcl_build }}
+
     runs-on: [self-hosted, Windows, ARM64, GCC, D2ps_v5]
     timeout-minutes: 600
 
@@ -91,11 +123,21 @@ jobs:
         if %errorlevel% neq 0 ( exit 1 )
         nmake test
         if %errorlevel% neq 0 ( exit 1 )
-        call .github\workflows\scripts\benchmark.bat 2> benchmark.txt
+        call .github\workflows\scripts\benchmark.bat 2> benchmark_arm64_clangcl.txt
         if %errorlevel% neq 0 ( exit 1 )
-        type benchmark.txt
+        type benchmark_arm64_clangcl.txt
+
+    - name: Archive openssl_windows_arm64_clangcl_benchmark.zip
+      uses: actions/upload-artifact@v3
+      if: ${{ inputs.benchmark }} || ${{ inputs.benchmark_snapshot }}
+      with:
+        name: openssl_windows_arm64_clangcl_benchmark.zip
+        path: benchmark_arm64_clangcl.txt
+        retention-days: 3
 
   build-openssl-linux-aarch64-gcc:
+    if: ${{ inputs.openssl_linux_aarch64_gcc_build }}
+
     runs-on: [self-hosted, Linux, ARM64, GCC, D2ps_v5]
     timeout-minutes: 600
 
@@ -115,5 +157,68 @@ jobs:
         ./Configure
         make
         make test
-        .github/workflows/scripts/benchmark.sh > benchmark.txt 2>&1
-        cat benchmark.txt
+        .github/workflows/scripts/benchmark.sh > benchmark_aarch64_gcc.txt 2>&1
+        cat benchmark_aarch64_gcc.txt
+
+    - name: Archive openssl_linux_aarch64_gcc_benchmark.zip
+      uses: actions/upload-artifact@v3
+      if: ${{ inputs.benchmark }} || ${{ inputs.benchmark_snapshot }}
+      with:
+        name: openssl_linux_aarch64_gcc_benchmark.zip
+        path: benchmark_aarch64_gcc.txt
+        retention-days: 3
+
+  verify-benchmark-regression:
+    if: ${{ inputs.verify_benchmark }}
+    needs: [build-openssl-windows-arm64-clangcl, build-openssl-linux-aarch64-gcc]
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Git checkout
+      uses: actions/checkout@v3
+
+    - name: Dowload openssl_linux_aarch64_gcc_benchmark.zip
+      uses: actions/download-artifact@v3
+      with:
+        name: openssl_linux_aarch64_gcc_benchmark.zip
+
+    - name: Dowload openssl_windows_arm64_clangcl_benchmark.zip
+      uses: actions/download-artifact@v3
+      with:
+        name: openssl_windows_arm64_clangcl_benchmark.zip
+
+    - name: Verify benchmark regression
+      run: |
+        set -x
+        git fetch origin ${{ github.event.repository.default_branch }}
+        . .github/workflows/scripts/benchmark.sh verify_benchmark_regression
+
+  create-benchmark-snapshot:
+    if: ${{ inputs.benchmark_snapshot }}
+    needs: [build-openssl-windows-arm64-clangcl, build-openssl-linux-aarch64-gcc]
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Git checkout
+      uses: actions/checkout@v3
+
+    - name: Dowload openssl_linux_aarch64_gcc_benchmark.zip
+      uses: actions/download-artifact@v3
+      with:
+        name: openssl_linux_aarch64_gcc_benchmark.zip
+
+    - name: Dowload openssl_windows_arm64_clangcl_benchmark.zip
+      uses: actions/download-artifact@v3
+      with:
+        name: openssl_windows_arm64_clangcl_benchmark.zip
+
+    - name: Create PR for a benchmark snapshot
+      run: |
+        set -x
+        . .github/workflows/scripts/benchmark.sh create_benchmark_snapshot_pr
+      env:
+        BRANCH: ${{ inputs.branch }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
