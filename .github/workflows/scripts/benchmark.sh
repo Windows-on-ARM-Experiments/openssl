@@ -70,6 +70,40 @@ verify_benchmark_regression() {
     cat change | grep -q "Potential benchmark regression has been detected" && exit 1 || echo "Benchmark regression has not been detected"
 }
 
+create_benchmark_snapshot_pr() {
+    git config user.name "$GITHUB_ACTOR"
+    git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+    git fetch origin $DEFAULT_BRANCH
+    git checkout origin/$DEFAULT_BRANCH -- .github/workflows/scripts
+    branch=$BRANCH
+    [[ -z $branch ]] && branch=$(git symbolic-ref --short HEAD)
+    [ ! -d .github/benchmark_snapshot ] && mkdir -p .github/benchmark_snapshot
+    benchmark_snapshot_result=$(date +".github/benchmark_snapshot/${branch}_%Y-%m-%d_%H_%M_%S_gcc_vs_clang.txt")
+    [ ! -d .assets/benchmark ] && mkdir -p .assets/benchmark
+    benchmark_image=$(date +".assets/benchmark/benchmark_snapshot_%Y-%m-%d_%H_%M_%S_gcc_vs_clangcl.png")
+    . .github/workflows/scripts/benchmark.sh benchmark_snapshot $benchmark_snapshot_result $benchmark_image
+    git restore .github/workflows/scripts
+    git fetch origin assets
+    git checkout assets
+    git add $benchmark_image
+    git commit -am "* add a benchmark image"
+    git push
+    git checkout $DEFAULT_BRANCH --
+    git checkout -b benchmark_snapshot
+    git add .github/benchmark_snapshot
+    git commit -am "* add a benchmark snapshot"
+    git push --force origin benchmark_snapshot
+    PR_RESPONSE=$(curl -X POST -H "Authorization: Bearer $GITHUB_TOKEN" \
+        -d '{
+        "title": "Add benchmark snapshot",
+        "body": "![image](https://raw.githubusercontent.com/Windows-on-ARM-Experiments/openssl/assets/'$benchmark_asset')",
+        "head": "benchmark_snapshot",
+        "base": "$DEFAULT_BRANCH"
+        }' \
+        https://api.github.com/repos/$GITHUB_REPOSITORY/pulls)
+    echo "$PR_RESPONSE"
+}
+
 command=$1
 shift
 
