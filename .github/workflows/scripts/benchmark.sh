@@ -73,26 +73,33 @@ verify_benchmark_regression() {
 create_benchmark_snapshot_pr() {
     git config user.name "$GITHUB_ACTOR"
     git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+    # fetch workflow scripts from default branch
     git fetch origin $DEFAULT_BRANCH
     git checkout origin/$DEFAULT_BRANCH -- .github/workflows/scripts
     branch=$BRANCH
+    # define a file for benchmark snapshot
     [[ -z $branch ]] && branch=$(git symbolic-ref --short HEAD)
     [ ! -d .github/benchmark_snapshot ] && mkdir -p .github/benchmark_snapshot
     benchmark_snapshot_result=$(date +".github/benchmark_snapshot/${branch}_%Y-%m-%d_%H_%M_%S_gcc_vs_clang.txt")
+    # define a file for a benchmark image in assests branch which will be used in PR description 
     [ ! -d .assets/benchmark ] && mkdir -p .assets/benchmark
     benchmark_image=$(date +".assets/benchmark/benchmark_snapshot_%Y-%m-%d_%H_%M_%S_gcc_vs_clangcl.png")
+    # create benchmark snapshot and benchmark image for the PR
     . .github/workflows/scripts/benchmark.sh benchmark_snapshot $benchmark_snapshot_result $benchmark_image
+    # add benchmark image to assets branch
     git restore .github/workflows/scripts
     git fetch origin assets
     git checkout assets
     git add $benchmark_image
     git commit -am "* add a benchmark image"
     git push
+    # add benchmark snapshot to PR branch
     git checkout $DEFAULT_BRANCH --
     git checkout -b benchmark_snapshot
     git add .github/benchmark_snapshot
     git commit -am "* add a benchmark snapshot"
     git push --force origin benchmark_snapshot
+    # create a PR for benchmark snapshot
     PR_RESPONSE=$(curl -X POST -H "Authorization: Bearer $GITHUB_TOKEN" \
         -d '{
         "title": "Add benchmark snapshot",
