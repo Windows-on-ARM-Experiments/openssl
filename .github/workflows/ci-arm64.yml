@@ -175,6 +175,7 @@ jobs:
 
     - name: Build OpenSSL on Linux AArch64 with GCC
       run: |
+        set -x
         git remote | grep WoA && git remote remove WoA
         git remote add WoA https://github.com/Windows-on-ARM-Experiments/openssl.git
         git fetch WoA ${{ github.event.repository.default_branch }}
@@ -182,7 +183,7 @@ jobs:
         ./Configure
         make
         make test
-        .github/workflows/scripts/benchmark.sh > benchmark_aarch64_gcc.txt 2>&1
+        .github/workflows/scripts/benchmark.sh execute_benchmark > benchmark_aarch64_gcc.txt 2>&1
         cat benchmark_aarch64_gcc.txt
 
     - name: Archive openssl_linux_aarch64_gcc_benchmark.zip
