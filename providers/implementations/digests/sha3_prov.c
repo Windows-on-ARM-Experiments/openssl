@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2019-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -249,7 +249,7 @@ static PROV_SHA3_METHOD kmac_s390x_md =
     } else {                                                                   \
         ctx->meth = sha3_generic_md;                                           \
     }
-#elif defined(__aarch64__)
+#elif defined(__aarch64__) && defined(KECCAK1600_ASM)
 # include "arm_arch.h"
 
 static sha3_absorb_fn armsha3_sha3_absorb;

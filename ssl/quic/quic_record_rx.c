@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2022-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -872,6 +872,13 @@ static int qrx_process_pkt(OSSL_QRX *qrx, QUIC_URXE *urxe,
 
         rxe->hdr.data   = rxe_data(rxe);
         rxe->pn         = QUIC_PN_INVALID;
+
+        rxe->data_len       = rxe->hdr.len;
+        rxe->datagram_len   = datagram_len;
+        rxe->key_epoch      = 0;
+        rxe->peer           = urxe->peer;
+        rxe->local          = urxe->local;
+        rxe->time           = urxe->time;
 
         /* Move RXE to pending. */
         ossl_list_rxe_remove(&qrx->rx_free, rxe);

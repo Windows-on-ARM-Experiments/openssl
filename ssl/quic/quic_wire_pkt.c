@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2022-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -288,6 +288,13 @@ int ossl_quic_wire_decode_pkt_hdr(PACKET *pkt,
 
             hdr->data       = PACKET_data(pkt);
             hdr->len        = PACKET_remaining(pkt);
+
+            /*
+             * Version negotiation packets must contain an array of u32s, so it
+             * is invalid for their payload length to not be divisible by 4.
+             */
+            if ((hdr->len % 4) != 0)
+                return 0;
 
             /* Version negotiation packets are always fully decoded. */
             hdr->partial    = 0;

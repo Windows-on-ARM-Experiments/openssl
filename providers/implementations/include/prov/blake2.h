@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2021 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2019-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -87,9 +87,6 @@ struct blake2b_md_data_st {
     BLAKE2B_CTX ctx;
     BLAKE2B_PARAM params;
 };
-
-int ossl_blake2s256_init(void *ctx);
-int ossl_blake2b512_init(void *ctx);
 
 int ossl_blake2b_init(BLAKE2B_CTX *c, const BLAKE2B_PARAM *P);
 int ossl_blake2b_init_key(BLAKE2B_CTX *c, const BLAKE2B_PARAM *P,

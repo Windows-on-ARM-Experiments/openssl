@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2022-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -9,7 +9,6 @@
 
 #include <stdlib.h>
 #include "internal/event_queue.h"
-#include "crypto/sparse_array.h"
 #include "ssl_local.h"
 
 struct ossl_event_queue_st {

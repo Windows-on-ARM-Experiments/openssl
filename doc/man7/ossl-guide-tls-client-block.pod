@@ -123,7 +123,7 @@ function and passing the B<SSL_CTX> we created as an argument.
 =head2 Creating the socket and BIO
 
 TLS data is transmitted over an underlying transport layer. Normally a TCP
-socket. It is the application's resonsibility for ensuring that the socket is
+socket. It is the application's responsibility for ensuring that the socket is
 created and associated with an SSL object (via a BIO).
 
 Socket creation for use by a client is typically a 2 step process, i.e.
@@ -221,10 +221,12 @@ BIO object:
 
     BIO *bio;
 
-    /* Create a BIO to wrap the socket*/
+    /* Create a BIO to wrap the socket */
     bio = BIO_new(BIO_s_socket());
-    if (bio == NULL)
+    if (bio == NULL) {
         BIO_closesocket(sock);
+        return NULL;
+    }
 
     /*
      * Associate the newly created BIO with the underlying socket. By
@@ -545,12 +547,17 @@ intermediate CAs, or the issuer is simply unrecognised).
 
 =head1 FURTHER READING
 
+See L<ossl-guide-tls-client-non-block(7)> to read a tutorial on how to modify
+the client developed on this page to support a nonblocking socket.
+
 See L<ossl-guide-quic-client-block(7)> to read a tutorial on how to modify the
 client developed on this page to support QUIC instead of TLS.
 
 =head1 SEE ALSO
 
-L<crypto(7)>, L<ossl-guide-tls-introduction(7)>
+L<ossl-guide-introduction(7)>, L<ossl-guide-libraries-introduction(7)>,
+L<ossl-guide-libssl-introduction(7)>, L<ossl-guide-tls-introduction(7)>,
+L<ossl-guide-tls-client-non-block(7)>, L<ossl-guide-quic-client-block(7)>
 
 =head1 COPYRIGHT
 

@@ -1785,9 +1785,26 @@ MSG_PROCESS_RETURN tls_process_server_hello(SSL_CONNECTION *s, PACKET *pkt)
     if (SSL_CONNECTION_IS_TLS13(s)
             && (!ssl->method->ssl3_enc->setup_key_block(s)
                 || !ssl->method->ssl3_enc->change_cipher_state(s,
-                    SSL3_CC_HANDSHAKE | SSL3_CHANGE_CIPHER_CLIENT_READ))) {
-        /* SSLfatal() already called */
-        goto err;
+                    SSL3_CC_HANDSHAKE | SSL3_CHANGE_CIPHER_CLIENT_READ)) {
+            /* SSLfatal() already called */
+            goto err;
+        }
+        /*
+         * If we're not doing early-data and we're not going to send a dummy CCS
+         * (i.e. no middlebox compat mode) then we can change the write keys
+         * immediately. Otherwise we have to defer this until after all possible
+         * early data is written. We could just always defer until the last
+         * moment except QUIC needs it done at the same time as the read keys
+         * are changed. Since QUIC doesn't do TLS early data or need middlebox
+         * compat this doesn't cause a problem.
+         */
+        if (s->early_data_state == SSL_EARLY_DATA_NONE
+                && (s->options & SSL_OP_ENABLE_MIDDLEBOX_COMPAT) == 0
+                && !ssl->method->ssl3_enc->change_cipher_state(s,
+                    SSL3_CC_HANDSHAKE | SSL3_CHANGE_CIPHER_CLIENT_WRITE)) {
+            /* SSLfatal() already called */
+            goto err;
+        }
     }
 
     OPENSSL_free(extensions);
@@ -3356,7 +3373,7 @@ int ossl_gost18_cke_cipher_nid(const SSL_CONNECTION *s)
 
 int ossl_gost_ukm(const SSL_CONNECTION *s, unsigned char *dgst_buf)
 {
-    EVP_MD_CTX * hash = NULL;
+    EVP_MD_CTX *hash = NULL;
     unsigned int md_len;
     SSL_CTX *sctx = SSL_CONNECTION_GET_CTX(s);
     const EVP_MD *md = ssl_evp_md_fetch(sctx->libctx, NID_id_GostR3411_2012_256,

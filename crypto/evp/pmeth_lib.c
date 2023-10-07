@@ -1,5 +1,5 @@
 /*
- * Copyright 2006-2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2006-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -247,10 +247,11 @@ static EVP_PKEY_CTX *int_ctx_new(OSSL_LIB_CTX *libctx,
      */
     if (e != NULL)
         pmeth = ENGINE_get_pkey_meth(e, id);
-    else if (pkey != NULL && pkey->foreign)
+    else
+# endif /* OPENSSL_NO_ENGINE */
+    if (pkey != NULL && pkey->foreign)
         pmeth = EVP_PKEY_meth_find(id);
     else
-# endif
         app_pmeth = pmeth = evp_pkey_meth_find_added_by_application(id);
 
     /* END legacy */

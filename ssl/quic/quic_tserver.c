@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2022-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -94,10 +94,12 @@ QUIC_TSERVER *ossl_quic_tserver_new(const QUIC_TSERVER_ARGS *args,
     if (srv->ctx == NULL)
         goto err;
 
-    if (SSL_CTX_use_certificate_file(srv->ctx, certfile, SSL_FILETYPE_PEM) <= 0)
+    if (certfile != NULL
+            && SSL_CTX_use_certificate_file(srv->ctx, certfile, SSL_FILETYPE_PEM) <= 0)
         goto err;
 
-    if (SSL_CTX_use_PrivateKey_file(srv->ctx, keyfile, SSL_FILETYPE_PEM) <= 0)
+    if (keyfile != NULL
+            && SSL_CTX_use_PrivateKey_file(srv->ctx, keyfile, SSL_FILETYPE_PEM) <= 0)
         goto err;
 
     SSL_CTX_set_alpn_select_cb(srv->ctx, alpn_select_cb, srv);
@@ -144,8 +146,9 @@ void ossl_quic_tserver_free(QUIC_TSERVER *srv)
         return;
 
     ossl_quic_channel_free(srv->ch);
-    BIO_free(srv->args.net_rbio);
-    BIO_free(srv->args.net_wbio);
+    BIO_free_all(srv->args.net_rbio);
+    BIO_free_all(srv->args.net_wbio);
+    OPENSSL_free(srv->ssl);
     SSL_free(srv->tls);
     SSL_CTX_free(srv->ctx);
 #if defined(OPENSSL_THREADS)
@@ -486,9 +489,9 @@ OSSL_TIME ossl_quic_tserver_get_deadline(QUIC_TSERVER *srv)
                 ossl_quic_channel_get_reactor(srv->ch));
 }
 
-int ossl_quic_tserver_shutdown(QUIC_TSERVER *srv)
+int ossl_quic_tserver_shutdown(QUIC_TSERVER *srv, uint64_t app_error_code)
 {
-    ossl_quic_channel_local_close(srv->ch, 0);
+    ossl_quic_channel_local_close(srv->ch, app_error_code, NULL);
 
     /* TODO(QUIC): !SSL_SHUTDOWN_FLAG_NO_STREAM_FLUSH */
 
@@ -521,4 +524,10 @@ void ossl_quic_tserver_set_msg_callback(QUIC_TSERVER *srv,
 {
     ossl_quic_channel_set_msg_callback(srv->ch, f, NULL);
     ossl_quic_channel_set_msg_callback_arg(srv->ch, arg);
+}
+
+void ossl_quic_tserver_set_psk_find_session_cb(QUIC_TSERVER *srv,
+                                               SSL_psk_find_session_cb_func cb)
+{
+    SSL_set_psk_find_session_callback(srv->tls, cb);
 }

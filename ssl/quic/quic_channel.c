@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2022-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -44,6 +44,7 @@
  */
 #define DEFAULT_MAX_ACK_DELAY   QUIC_DEFAULT_MAX_ACK_DELAY
 
+static void ch_save_err_state(QUIC_CHANNEL *ch);
 static void ch_rx_pre(QUIC_CHANNEL *ch);
 static int ch_rx(QUIC_CHANNEL *ch);
 static int ch_tx(QUIC_CHANNEL *ch);
@@ -97,6 +98,8 @@ static int ch_server_on_new_conn(QUIC_CHANNEL *ch, const BIO_ADDR *peer,
                                  const QUIC_CONN_ID *peer_dcid);
 static void ch_on_txp_ack_tx(const OSSL_QUIC_FRAME_ACK *ack, uint32_t pn_space,
                              void *arg);
+static void ch_rx_handle_version_neg(QUIC_CHANNEL *ch, OSSL_QRX_PKT *pkt);
+static void ch_raise_version_neg_failure(QUIC_CHANNEL *ch);
 
 static int gen_rand_conn_id(OSSL_LIB_CTX *libctx, size_t len, QUIC_CONN_ID *cid)
 {
@@ -372,6 +375,18 @@ static void ch_cleanup(QUIC_CHANNEL *ch)
     ossl_quic_demux_free(ch->demux);
     OPENSSL_free(ch->local_transport_params);
     OSSL_ERR_STATE_free(ch->err_state);
+    OPENSSL_free(ch->ack_range_scratch);
+
+    /* Free the stateless reset tokens */
+    for (srte = ossl_list_stateless_reset_tokens_head(&ch->srt_list_seq);
+         srte != NULL;
+         srte = srte_next) {
+        srte_next = ossl_list_stateless_reset_tokens_next(srte);
+        ossl_list_stateless_reset_tokens_remove(&ch->srt_list_seq, srte);
+        (void)lh_QUIC_SRT_ELEM_delete(ch->srt_hash_tok, srte);
+        OPENSSL_free(srte);
+    }
+    lh_QUIC_SRT_ELEM_free(ch->srt_hash_tok);
 }
 
 QUIC_CHANNEL *ossl_quic_channel_new(const QUIC_CHANNEL_ARGS *args)
@@ -421,13 +436,26 @@ int ossl_quic_channel_set_mutator(QUIC_CHANNEL *ch,
 
 int ossl_quic_channel_get_peer_addr(QUIC_CHANNEL *ch, BIO_ADDR *peer_addr)
 {
+    if (!ch->addressed_mode)
+        return 0;
+
     *peer_addr = ch->cur_peer_addr;
     return 1;
 }
 
 int ossl_quic_channel_set_peer_addr(QUIC_CHANNEL *ch, const BIO_ADDR *peer_addr)
 {
-    ch->cur_peer_addr = *peer_addr;
+    if (ch->state != QUIC_CHANNEL_STATE_IDLE)
+        return 0;
+
+    if (peer_addr == NULL || BIO_ADDR_family(peer_addr) == AF_UNSPEC) {
+        BIO_ADDR_clear(&ch->cur_peer_addr);
+        ch->addressed_mode = 0;
+        return 1;
+    }
+
+    ch->cur_peer_addr   = *peer_addr;
+    ch->addressed_mode  = 1;
     return 1;
 }
 
@@ -1059,6 +1087,8 @@ static int ch_on_transport_params(const unsigned char *params,
     int got_initial_max_stream_data_uni = 0;
     int got_initial_max_streams_bidi = 0;
     int got_initial_max_streams_uni = 0;
+    int got_stateless_reset_token = 0;
+    int got_preferred_addr = 0;
     int got_ack_delay_exp = 0;
     int got_max_ack_delay = 0;
     int got_max_udp_payload_size = 0;
@@ -1360,7 +1390,11 @@ static int ch_on_transport_params(const unsigned char *params,
             break;
 
         case QUIC_TPARAM_STATELESS_RESET_TOKEN:
-            /* TODO(QUIC): Handle stateless reset tokens. */
+            if (got_stateless_reset_token) {
+                reason = TP_REASON_DUP("STATELESS_RESET_TOKEN");
+                goto malformed;
+            }
+
             /*
              * We ignore these for now, but we must ensure a client doesn't
              * send them.
@@ -1376,12 +1410,17 @@ static int ch_on_transport_params(const unsigned char *params,
                 goto malformed;
             }
 
+            got_stateless_reset_token = 1;
             break;
 
         case QUIC_TPARAM_PREFERRED_ADDR:
             {
                 /* TODO(QUIC FUTURE): Handle preferred address. */
                 QUIC_PREFERRED_ADDR pfa;
+                if (got_preferred_addr) {
+                    reason = TP_REASON_DUP("PREFERRED_ADDR");
+                    goto malformed;
+                }
 
                 /*
                  * RFC 9000 s. 18.2: "A server that chooses a zero-length
@@ -1410,6 +1449,8 @@ static int ch_on_transport_params(const unsigned char *params,
                     reason = "zero-length CID in PREFERRED_ADDR";
                     goto malformed;
                 }
+
+                got_preferred_addr = 1;
             }
             break;
 
@@ -1886,6 +1927,7 @@ static int bio_addr_eq(const BIO_ADDR *a, const BIO_ADDR *b)
 static void ch_rx_handle_packet(QUIC_CHANNEL *ch)
 {
     uint32_t enc_level;
+    int old_have_processed_any_pkt = ch->have_processed_any_pkt;
 
     assert(ch->qrx_pkt != NULL);
 
@@ -1957,6 +1999,8 @@ static void ch_rx_handle_packet(QUIC_CHANNEL *ch)
          * packet. We only ever use v1, so require it.
          */
         return;
+
+    ch->have_processed_any_pkt = 1;
 
     /*
      * RFC 9000 s. 17.2: "An endpoint MUST treat receipt of a packet that has a
@@ -2073,10 +2117,61 @@ static void ch_rx_handle_packet(QUIC_CHANNEL *ch)
         ossl_quic_handle_frames(ch, ch->qrx_pkt); /* best effort */
         break;
 
+    case QUIC_PKT_TYPE_VERSION_NEG:
+        /*
+         * "A client MUST discard any Version Negotiation packet if it has
+         * received and successfully processed any other packet."
+         */
+        if (!old_have_processed_any_pkt)
+            ch_rx_handle_version_neg(ch, ch->qrx_pkt);
+
+        break;
+
     default:
         assert(0);
         break;
     }
+}
+
+static void ch_rx_handle_version_neg(QUIC_CHANNEL *ch, OSSL_QRX_PKT *pkt)
+{
+    /*
+     * We do not support version negotiation at this time. As per RFC 9000 s.
+     * 6.2., we MUST abandon the connection attempt if we receive a Version
+     * Negotiation packet, unless we have already successfully processed another
+     * incoming packet, or the packet lists the QUIC version we want to use.
+     */
+    PACKET vpkt;
+    unsigned long v;
+
+    if (!PACKET_buf_init(&vpkt, pkt->hdr->data, pkt->hdr->len))
+        return;
+
+    while (PACKET_remaining(&vpkt) > 0) {
+        if (!PACKET_get_net_4(&vpkt, &v))
+            break;
+
+        if ((uint32_t)v == QUIC_VERSION_1)
+            return;
+    }
+
+    /* No match, this is a failure case. */
+    ch_raise_version_neg_failure(ch);
+}
+
+static void ch_raise_version_neg_failure(QUIC_CHANNEL *ch)
+{
+    QUIC_TERMINATE_CAUSE tcause = {0};
+
+    tcause.error_code = QUIC_ERR_CONNECTION_REFUSED;
+    tcause.reason     = "version negotiation failure";
+    tcause.reason_len = strlen(tcause.reason);
+
+    /*
+     * Skip TERMINATING state; this is not considered a protocol error and we do
+     * not send CONNECTION_CLOSE.
+     */
+    ch_start_terminating(ch, &tcause, 1);
 }
 
 /*
@@ -2346,6 +2441,40 @@ BIO *ossl_quic_channel_get_net_wbio(QUIC_CHANNEL *ch)
     return ch->net_wbio;
 }
 
+static int ch_update_poll_desc(QUIC_CHANNEL *ch, BIO *net_bio, int for_write)
+{
+    BIO_POLL_DESCRIPTOR d = {0};
+
+    if (net_bio == NULL
+        || (!for_write && !BIO_get_rpoll_descriptor(net_bio, &d))
+        || (for_write && !BIO_get_wpoll_descriptor(net_bio, &d)))
+        /* Non-pollable BIO */
+        d.type = BIO_POLL_DESCRIPTOR_TYPE_NONE;
+
+    if (!validate_poll_descriptor(&d))
+        return 0;
+
+    if (for_write)
+        ossl_quic_reactor_set_poll_w(&ch->rtor, &d);
+    else
+        ossl_quic_reactor_set_poll_r(&ch->rtor, &d);
+
+    return 1;
+}
+
+int ossl_quic_channel_update_poll_descriptors(QUIC_CHANNEL *ch)
+{
+    int ok = 1;
+
+    if (!ch_update_poll_desc(ch, ch->net_rbio, /*for_write=*/0))
+        ok = 0;
+
+    if (!ch_update_poll_desc(ch, ch->net_wbio, /*for_write=*/1))
+        ok = 0;
+
+    return ok;
+}
+
 /*
  * QUIC_CHANNEL does not ref any BIO it is provided with, nor is any ref
  * transferred to it. The caller (i.e., QUIC_CONNECTION) is responsible for
@@ -2354,21 +2483,12 @@ BIO *ossl_quic_channel_get_net_wbio(QUIC_CHANNEL *ch)
  */
 int ossl_quic_channel_set_net_rbio(QUIC_CHANNEL *ch, BIO *net_rbio)
 {
-    BIO_POLL_DESCRIPTOR d = {0};
-
     if (ch->net_rbio == net_rbio)
         return 1;
 
-    if (net_rbio != NULL) {
-        if (!BIO_get_rpoll_descriptor(net_rbio, &d))
-            /* Non-pollable BIO */
-            d.type = BIO_POLL_DESCRIPTOR_TYPE_NONE;
+    if (!ch_update_poll_desc(ch, net_rbio, /*for_write=*/0))
+        return 0;
 
-        if (!validate_poll_descriptor(&d))
-            return 0;
-    }
-
-    ossl_quic_reactor_set_poll_r(&ch->rtor, &d);
     ossl_quic_demux_set_bio(ch->demux, net_rbio);
     ch->net_rbio = net_rbio;
     return 1;
@@ -2376,21 +2496,12 @@ int ossl_quic_channel_set_net_rbio(QUIC_CHANNEL *ch, BIO *net_rbio)
 
 int ossl_quic_channel_set_net_wbio(QUIC_CHANNEL *ch, BIO *net_wbio)
 {
-    BIO_POLL_DESCRIPTOR d = {0};
-
     if (ch->net_wbio == net_wbio)
         return 1;
 
-    if (net_wbio != NULL) {
-        if (!BIO_get_wpoll_descriptor(net_wbio, &d))
-            /* Non-pollable BIO */
-            d.type = BIO_POLL_DESCRIPTOR_TYPE_NONE;
+    if (!ch_update_poll_desc(ch, net_wbio, /*for_write=*/1))
+        return 0;
 
-        if (!validate_poll_descriptor(&d))
-            return 0;
-    }
-
-    ossl_quic_reactor_set_poll_w(&ch->rtor, &d);
     ossl_qtx_set_bio(ch->qtx, net_wbio);
     ch->net_wbio = net_wbio;
     return 1;
@@ -2402,6 +2513,10 @@ int ossl_quic_channel_set_net_wbio(QUIC_CHANNEL *ch, BIO *net_wbio)
  */
 int ossl_quic_channel_start(QUIC_CHANNEL *ch)
 {
+    uint64_t error_code;
+    const char *error_msg;
+    ERR_STATE *error_state = NULL;
+
     if (ch->is_server)
         /*
          * This is not used by the server. The server moves to active
@@ -2430,8 +2545,14 @@ int ossl_quic_channel_start(QUIC_CHANNEL *ch)
     ch->doing_proactive_ver_neg = 0; /* not currently supported */
 
     /* Handshake layer: start (e.g. send CH). */
-    if (!ossl_quic_tls_tick(ch->qtls))
+    ossl_quic_tls_tick(ch->qtls);
+
+    if (ossl_quic_tls_get_error(ch->qtls, &error_code, &error_msg,
+                                &error_state)) {
+        ossl_quic_channel_raise_protocol_error_state(ch, error_code, 0,
+                                                     error_msg, error_state);
         return 0;
+    }
 
     ossl_quic_reactor_tick(&ch->rtor, 0); /* best effort */
     return 1;
@@ -2626,6 +2747,10 @@ static void ch_start_terminating(QUIC_CHANNEL *ch,
                                  const QUIC_TERMINATE_CAUSE *tcause,
                                  int force_immediate)
 {
+    /* No point sending anything if we haven't sent anything yet. */
+    if (!ch->have_sent_any_pkt)
+        force_immediate = 1;
+
     switch (ch->state) {
     default:
     case QUIC_CHANNEL_STATE_IDLE:
@@ -2923,6 +3048,10 @@ void ossl_quic_channel_raise_protocol_error_loc(QUIC_CHANNEL *ch,
     const char *ft_str = NULL;
     const char *ft_str_pfx = " (", *ft_str_sfx = ")";
 
+    if (ch->protocol_error)
+        /* Only the first call to this function matters. */
+        return;
+
     if (err_str == NULL) {
         err_str     = "";
         err_str_pfx = "";
@@ -2968,6 +3097,7 @@ void ossl_quic_channel_raise_protocol_error_loc(QUIC_CHANNEL *ch,
     tcause.error_code = error_code;
     tcause.frame_type = frame_type;
 
+    ch->protocol_error = 1;
     ch_start_terminating(ch, &tcause, 0);
 }
 

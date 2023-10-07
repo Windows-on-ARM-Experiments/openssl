@@ -236,6 +236,9 @@
  */
 # define TLS1_TLSTREE 0x20000
 
+/* Ciphersuite supported in QUIC */
+# define SSL_QUIC                0x00040000U
+
 # define SSL_STRONG_MASK         0x0000001FU
 # define SSL_DEFAULT_MASK        0X00000020U
 
@@ -1258,7 +1261,7 @@ struct ssl_connection_st {
     SSL_EARLY_DATA_STATE early_data_state;
     BUF_MEM *init_buf;          /* buffer used during init */
     void *init_msg;             /* pointer to handshake message body, set by
-                                 * ssl3_get_message() */
+                                 * tls_get_message_header() */
     size_t init_num;               /* amount read/written */
     size_t init_off;               /* amount read/written */
 
@@ -2163,16 +2166,6 @@ typedef struct ssl3_enc_method {
  */
 # define SSL_ENC_FLAG_TLS1_2_CIPHERS     0x10
 
-# ifndef OPENSSL_NO_COMP
-/* Used for holding the relevant compression methods loaded into SSL_CTX */
-typedef struct ssl3_comp_st {
-    int comp_id;                /* The identifier byte for this compression
-                                 * type */
-    char *name;                 /* Text name used for the compression type */
-    COMP_METHOD *method;        /* The method :-) */
-} SSL3_COMP;
-# endif
-
 typedef enum downgrade_en {
     DOWNGRADE_NONE,
     DOWNGRADE_TO_1_2,
@@ -2998,6 +2991,8 @@ size_t ossl_calculate_comp_expansion(int alg, size_t length);
 void ossl_ssl_set_custom_record_layer(SSL_CONNECTION *s,
                                       const OSSL_RECORD_METHOD *meth,
                                       void *rlarg);
+
+long ossl_ctrl_internal(SSL *s, int cmd, long larg, void *parg, int no_quic);
 
 /*
  * Options which no longer have any effect, but which can be implemented

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2022-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -555,8 +555,8 @@ int ossl_quic_tx_packetiser_set_peer(OSSL_QUIC_TX_PACKETISER *txp,
                                      const BIO_ADDR *peer)
 {
     if (peer == NULL) {
-        ERR_raise(ERR_LIB_SSL, ERR_R_PASSED_NULL_PARAMETER);
-        return 0;
+        BIO_ADDR_clear(&txp->args.peer);
+        return 1;
     }
 
     txp->args.peer = *peer;
@@ -1980,7 +1980,7 @@ static int txp_generate_crypto_frames(OSSL_QUIC_TX_PACKETISER *txp,
 
         /*
          * Ensure we have enough iovecs allocated (1 for the header, up to 2 for
-         * the the stream data.)
+         * the stream data.)
          */
         if (!txp_el_ensure_iovec(&txp->el[enc_level], h->num_iovec + 3))
             return 0; /* alloc error */
@@ -2230,7 +2230,7 @@ static int txp_generate_stream_frames(OSSL_QUIC_TX_PACKETISER *txp,
 
         /*
          * Ensure we have enough iovecs allocated (1 for the header, up to 2 for
-         * the the stream data.)
+         * the stream data.)
          */
         if (!txp_el_ensure_iovec(&txp->el[enc_level], h->num_iovec + 3))
             goto err; /* alloc error */

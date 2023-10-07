@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2022-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -286,6 +286,12 @@ BIO *ossl_quic_channel_get_net_rbio(QUIC_CHANNEL *ch);
 BIO *ossl_quic_channel_get_net_wbio(QUIC_CHANNEL *ch);
 int ossl_quic_channel_set_net_rbio(QUIC_CHANNEL *ch, BIO *net_rbio);
 int ossl_quic_channel_set_net_wbio(QUIC_CHANNEL *ch, BIO *net_wbio);
+
+/*
+ * Re-poll the network BIOs already set to determine if their support
+ * for polling has changed.
+ */
+int ossl_quic_channel_update_poll_descriptors(QUIC_CHANNEL *ch);
 
 /*
  * Returns an existing stream by stream ID. Returns NULL if the stream does not

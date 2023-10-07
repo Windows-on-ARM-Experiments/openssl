@@ -37,7 +37,12 @@ OpenSSL 3.2
 OpenSSL 3.1
 -----------
 
-### Major changes between OpenSSL 3.1.1 and OpenSSL 3.1.2 [under development]
+### Major changes between OpenSSL 3.1.2 and OpenSSL 3.1.3 [under development]
+
+  * Fix POLY1305 MAC implementation corrupting XMM registers on Windows
+    ([CVE-2023-4807])
+
+### Major changes between OpenSSL 3.1.1 and OpenSSL 3.1.2 [1 Aug 2023]
 
   * Fix excessive time spent checking DH q parameter value ([CVE-2023-3817])
   * Fix DH_check() excessive time with over sized modulus ([CVE-2023-3446])
@@ -115,7 +120,7 @@ OpenSSL 3.0
   * Fixed a bug where the RC4-MD5 ciphersuite incorrectly used the
     AAD data as the MAC key ([CVE-2022-1434])
   * Fix a bug in the OPENSSL_LH_flush() function that breaks reuse of the memory
-    occuppied by the removed hash table entries ([CVE-2022-1473])
+    occupied by the removed hash table entries ([CVE-2022-1473])
 
 ### Major changes between OpenSSL 3.0.1 and OpenSSL 3.0.2 [15 Mar 2022]
 
@@ -1482,6 +1487,7 @@ OpenSSL 0.9.x
 
 <!-- Links -->
 
+[CVE-2023-4807]: https://www.openssl.org/news/vulnerabilities.html#CVE-2023-4807
 [CVE-2023-3817]: https://www.openssl.org/news/vulnerabilities.html#CVE-2023-3817
 [CVE-2023-3446]: https://www.openssl.org/news/vulnerabilities.html#CVE-2023-3446
 [CVE-2023-2975]: https://www.openssl.org/news/vulnerabilities.html#CVE-2023-2975

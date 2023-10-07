@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2022-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -2752,6 +2752,11 @@ static int test_wire_pkt_hdr_actual(int tidx, int repeat, int cipher,
     int expect_fail = trunc_len < t->min_success_len;
     hpr_key[8] = (unsigned char)tidx;
     hpr_key[9] = (unsigned char)repeat;
+
+    if (is_trunc && trunc_len > t->min_success_len
+        && t->hdr.type == QUIC_PKT_TYPE_VERSION_NEG
+        && ((trunc_len - t->min_success_len) % 4) != 0)
+        expect_fail = 1;
 
     switch (cipher) {
         case 0:

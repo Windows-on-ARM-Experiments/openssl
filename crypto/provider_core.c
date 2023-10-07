@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2019-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -519,7 +519,7 @@ static int provider_free_intern(OSSL_PROVIDER *prov, int deactivate)
  */
 OSSL_PROVIDER *ossl_provider_new(OSSL_LIB_CTX *libctx, const char *name,
                                  OSSL_provider_init_fn *init_function,
-                                 int noconfig)
+                                 OSSL_PARAM *params, int noconfig)
 {
     struct provider_store_st *store = NULL;
     OSSL_PROVIDER_INFO template;
@@ -541,7 +541,7 @@ OSSL_PROVIDER *ossl_provider_new(OSSL_LIB_CTX *libctx, const char *name,
             }
         }
         if (p->name == NULL) {
-            /* Check if this is a user added builtin provider */
+            /* Check if this is a user added provider */
             if (!CRYPTO_THREAD_read_lock(store->lock))
                 return NULL;
             for (i = 0, p = store->provinfo; i < store->numprovinfo; p++, i++) {
@@ -556,8 +556,29 @@ OSSL_PROVIDER *ossl_provider_new(OSSL_LIB_CTX *libctx, const char *name,
         template.init = init_function;
     }
 
+    if (params != NULL) {
+        int i;
+
+        template.parameters = sk_INFOPAIR_new_null();
+        if (template.parameters == NULL)
+            return NULL;
+
+        for (i = 0; params[i].key != NULL; i++) {
+            if (params[i].data_type != OSSL_PARAM_UTF8_STRING)
+                continue;
+            if (ossl_provider_info_add_parameter(&template, params[i].key,
+                                                 (char *)params[i].data) <= 0)
+                return NULL;
+        }
+    }
+
     /* provider_new() generates an error, so no need here */
-    if ((prov = provider_new(name, template.init, template.parameters)) == NULL)
+    prov = provider_new(name, template.init, template.parameters);
+
+    if (params != NULL) /* We copied the parameters, let's free them */
+        sk_INFOPAIR_pop_free(template.parameters, infopair_free);
+
+    if (prov == NULL)
         return NULL;
 
     prov->libctx = libctx;
@@ -1910,10 +1931,12 @@ OSSL_FUNC_BIO_free_fn ossl_core_bio_free;
 OSSL_FUNC_BIO_vprintf_fn ossl_core_bio_vprintf;
 OSSL_FUNC_BIO_vsnprintf_fn BIO_vsnprintf;
 static OSSL_FUNC_self_test_cb_fn core_self_test_get_callback;
-OSSL_FUNC_get_entropy_fn ossl_rand_get_entropy;
-OSSL_FUNC_cleanup_entropy_fn ossl_rand_cleanup_entropy;
-OSSL_FUNC_get_nonce_fn ossl_rand_get_nonce;
-OSSL_FUNC_cleanup_nonce_fn ossl_rand_cleanup_nonce;
+static OSSL_FUNC_get_user_entropy_fn rand_get_user_entropy;
+static OSSL_FUNC_get_entropy_fn rand_get_entropy;
+static OSSL_FUNC_cleanup_entropy_fn rand_cleanup_entropy;
+static OSSL_FUNC_get_user_nonce_fn rand_get_user_nonce;
+static OSSL_FUNC_get_nonce_fn rand_get_nonce;
+static OSSL_FUNC_cleanup_nonce_fn rand_cleanup_nonce;
 #endif
 OSSL_FUNC_CRYPTO_malloc_fn CRYPTO_malloc;
 OSSL_FUNC_CRYPTO_zalloc_fn CRYPTO_zalloc;
@@ -2074,6 +2097,54 @@ static void core_self_test_get_callback(OPENSSL_CORE_CTX *libctx,
     OSSL_SELF_TEST_get_callback((OSSL_LIB_CTX *)libctx, cb, cbarg);
 }
 
+static size_t rand_get_entropy(const OSSL_CORE_HANDLE *handle,
+                               unsigned char **pout, int entropy,
+                               size_t min_len, size_t max_len)
+{
+    return ossl_rand_get_entropy((OSSL_LIB_CTX *)core_get_libctx(handle),
+                                 pout, entropy, min_len, max_len);
+}
+
+static size_t rand_get_user_entropy(const OSSL_CORE_HANDLE *handle,
+                                    unsigned char **pout, int entropy,
+                                    size_t min_len, size_t max_len)
+{
+    return ossl_rand_get_user_entropy((OSSL_LIB_CTX *)core_get_libctx(handle),
+                                      pout, entropy, min_len, max_len);
+}
+
+static void rand_cleanup_entropy(const OSSL_CORE_HANDLE *handle,
+                                 unsigned char *buf, size_t len)
+{
+    ossl_rand_cleanup_entropy((OSSL_LIB_CTX *)core_get_libctx(handle),
+                              buf, len);
+}
+
+static size_t rand_get_nonce(const OSSL_CORE_HANDLE *handle,
+                             unsigned char **pout,
+                             size_t min_len, size_t max_len,
+                             const void *salt, size_t salt_len)
+{
+    return ossl_rand_get_nonce((OSSL_LIB_CTX *)core_get_libctx(handle),
+                               pout, min_len, max_len, salt, salt_len);
+}
+
+static size_t rand_get_user_nonce(const OSSL_CORE_HANDLE *handle,
+                                  unsigned char **pout,
+                                  size_t min_len, size_t max_len,
+                                  const void *salt, size_t salt_len)
+{
+    return ossl_rand_get_user_nonce((OSSL_LIB_CTX *)core_get_libctx(handle),
+                                    pout, min_len, max_len, salt, salt_len);
+}
+
+static void rand_cleanup_nonce(const OSSL_CORE_HANDLE *handle,
+                               unsigned char *buf, size_t len)
+{
+    ossl_rand_cleanup_nonce((OSSL_LIB_CTX *)core_get_libctx(handle),
+                            buf, len);
+}
+
 static const char *core_provider_get0_name(const OSSL_CORE_HANDLE *prov)
 {
     return OSSL_PROVIDER_get0_name((const OSSL_PROVIDER *)prov);
@@ -2167,10 +2238,12 @@ static const OSSL_DISPATCH core_dispatch_[] = {
     { OSSL_FUNC_BIO_VPRINTF, (void (*)(void))ossl_core_bio_vprintf },
     { OSSL_FUNC_BIO_VSNPRINTF, (void (*)(void))BIO_vsnprintf },
     { OSSL_FUNC_SELF_TEST_CB, (void (*)(void))core_self_test_get_callback },
-    { OSSL_FUNC_GET_ENTROPY, (void (*)(void))ossl_rand_get_entropy },
-    { OSSL_FUNC_CLEANUP_ENTROPY, (void (*)(void))ossl_rand_cleanup_entropy },
-    { OSSL_FUNC_GET_NONCE, (void (*)(void))ossl_rand_get_nonce },
-    { OSSL_FUNC_CLEANUP_NONCE, (void (*)(void))ossl_rand_cleanup_nonce },
+    { OSSL_FUNC_GET_ENTROPY, (void (*)(void))rand_get_entropy },
+    { OSSL_FUNC_CLEANUP_ENTROPY, (void (*)(void))rand_cleanup_entropy },
+    { OSSL_FUNC_GET_NONCE, (void (*)(void))rand_get_nonce },
+    { OSSL_FUNC_CLEANUP_NONCE, (void (*)(void))rand_cleanup_nonce },
+    { OSSL_FUNC_GET_USER_ENTROPY, (void (*)(void))rand_get_user_entropy },
+    { OSSL_FUNC_GET_USER_NONCE, (void (*)(void))rand_get_user_nonce },
 #endif
     { OSSL_FUNC_CRYPTO_MALLOC, (void (*)(void))CRYPTO_malloc },
     { OSSL_FUNC_CRYPTO_ZALLOC, (void (*)(void))CRYPTO_zalloc },

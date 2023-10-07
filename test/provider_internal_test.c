@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2021 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2019-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -64,7 +64,7 @@ static int test_builtin_provider(void)
 
     ret =
         TEST_ptr(prov =
-                 ossl_provider_new(NULL, name, PROVIDER_INIT_FUNCTION_NAME, 0))
+                 ossl_provider_new(NULL, name, PROVIDER_INIT_FUNCTION_NAME, NULL, 0))
         && test_provider(prov, expected_greeting1(name));
 
     EVP_set_default_properties(NULL, "");
@@ -79,7 +79,7 @@ static int test_loaded_provider(void)
     OSSL_PROVIDER *prov = NULL;
 
     return
-        TEST_ptr(prov = ossl_provider_new(NULL, name, NULL, 0))
+        TEST_ptr(prov = ossl_provider_new(NULL, name, NULL, NULL, 0))
         && test_provider(prov, expected_greeting1(name));
 }
 

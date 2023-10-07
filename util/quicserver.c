@@ -110,10 +110,12 @@ static BIO *create_dgram_bio(int family, const char *hostname, const char *port)
     if (sock == -1)
         return NULL;
 
-    /* Create a BIO to wrap the socket*/
+    /* Create a BIO to wrap the socket */
     bio = BIO_new(BIO_s_datagram());
-    if (bio == NULL)
+    if (bio == NULL) {
         BIO_closesocket(sock);
+        return NULL;
+    }
 
     /*
      * Associate the newly created BIO with the underlying socket. By
@@ -202,12 +204,13 @@ int main(int argc, char *argv[])
     /* Ownership of the BIO is passed to qtserv */
     bio = NULL;
 
-    /* Read the request */
-    do {
-        if (first)
-            first = 0;
-        else
-            wait_for_activity(qtserv);
+    if (trace)
+#ifndef OPENSSL_NO_SSL_TRACE
+        ossl_quic_tserver_set_msg_callback(qtserv, SSL_trace, bio_err);
+#else
+        BIO_printf(bio_err,
+                   "Warning: -trace specified but no SSL tracing support present\n");
+#endif
 
         ossl_quic_tserver_tick(qtserv);
 

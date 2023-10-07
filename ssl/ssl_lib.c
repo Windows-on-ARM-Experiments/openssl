@@ -2900,21 +2900,36 @@ int SSL_new_session_ticket(SSL *s)
 
 long SSL_ctrl(SSL *s, int cmd, long larg, void *parg)
 {
+    return ossl_ctrl_internal(s, cmd, larg, parg, /*no_quic=*/0);
+}
+
+long ossl_ctrl_internal(SSL *s, int cmd, long larg, void *parg, int no_quic)
+{
     long l;
     SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL(s);
 
-    /* TODO(QUIC FUTURE): Special handling for some ctrls will be needed */
-    if (sc == NULL)
-        return 0;
+    /*
+     * Routing of ctrl calls for QUIC is a little counterintuitive:
+     *
+     *   - Firstly (no_quic=0), we pass the ctrl directly to our QUIC
+     *     implementation in case it wants to handle the ctrl specially.
+     *
+     *   - If our QUIC implementation does not care about the ctrl, it
+     *     will reenter this function with no_quic=1 and we will try to handle
+     *     it directly using the QCSO SSL object stub (not the handshake layer
+     *     SSL object). This is important for e.g. the version configuration
+     *     ctrls below, which must use s->defltmeth (and not sc->defltmeth).
+     *
+     *   - If we don't handle a ctrl here specially, then processing is
+     *     redirected to the handshake layer SSL object.
+     */
+    if (!no_quic && IS_QUIC(s))
+        return s->method->ssl_ctrl(s, cmd, larg, parg);
 
     switch (cmd) {
     case SSL_CTRL_GET_READ_AHEAD:
-        if (IS_QUIC(s))
-            return 0;
         return RECORD_LAYER_get_read_ahead(&sc->rlayer);
     case SSL_CTRL_SET_READ_AHEAD:
-        if (IS_QUIC(s))
-            return 0;
         l = RECORD_LAYER_get_read_ahead(&sc->rlayer);
         RECORD_LAYER_set_read_ahead(&sc->rlayer, larg);
         return l;
@@ -2945,7 +2960,7 @@ long SSL_ctrl(SSL *s, int cmd, long larg, void *parg)
         sc->max_cert_list = (size_t)larg;
         return l;
     case SSL_CTRL_SET_MAX_SEND_FRAGMENT:
-        if (larg < 512 || larg > SSL3_RT_MAX_PLAIN_LENGTH || IS_QUIC(s))
+        if (larg < 512 || larg > SSL3_RT_MAX_PLAIN_LENGTH)
             return 0;
 #ifndef OPENSSL_NO_KTLS
         if (sc->wbio != NULL && BIO_get_ktls_send(sc->wbio))
@@ -2957,12 +2972,12 @@ long SSL_ctrl(SSL *s, int cmd, long larg, void *parg)
         sc->rlayer.wrlmethod->set_max_frag_len(sc->rlayer.wrl, larg);
         return 1;
     case SSL_CTRL_SET_SPLIT_SEND_FRAGMENT:
-        if ((size_t)larg > sc->max_send_fragment || larg == 0 || IS_QUIC(s))
+        if ((size_t)larg > sc->max_send_fragment || larg == 0)
             return 0;
         sc->split_send_fragment = larg;
         return 1;
     case SSL_CTRL_SET_MAX_PIPELINES:
-        if (larg < 1 || larg > SSL_MAX_PIPELINES || IS_QUIC(s))
+        if (larg < 1 || larg > SSL_MAX_PIPELINES)
             return 0;
         sc->max_pipelines = larg;
         if (sc->rlayer.rrlmethod->set_max_pipelines != NULL)
@@ -3007,7 +3022,10 @@ long SSL_ctrl(SSL *s, int cmd, long larg, void *parg)
     case SSL_CTRL_GET_MAX_PROTO_VERSION:
         return sc->max_proto_version;
     default:
-        return s->method->ssl_ctrl(s, cmd, larg, parg);
+        if (IS_QUIC(s))
+            return SSL_ctrl((SSL *)sc, cmd, larg, parg);
+        else
+            return s->method->ssl_ctrl(s, cmd, larg, parg);
     }
 }
 
@@ -3379,14 +3397,14 @@ char *SSL_get_shared_ciphers(const SSL *s, char *buf, int size)
         if (sk_SSL_CIPHER_find(srvrsk, c) < 0)
             continue;
 
-        n = strlen(c->name);
-        if (n + 1 > size) {
+        n = OPENSSL_strnlen(c->name, size);
+        if (n >= size) {
             if (p != buf)
                 --p;
             *p = '\0';
             return buf;
         }
-        strcpy(p, c->name);
+        memcpy(p, c->name, n);
         p += n;
         *(p++) = ':';
         size -= n + 1;
@@ -5483,6 +5501,11 @@ int SSL_want(const SSL *s)
 {
     const SSL_CONNECTION *sc = SSL_CONNECTION_FROM_CONST_SSL(s);
 
+#ifndef OPENSSL_NO_QUIC
+    if (IS_QUIC(s))
+        return ossl_quic_want(s);
+#endif
+
     if (sc == NULL)
         return SSL_NOTHING;
 
@@ -6174,13 +6197,13 @@ const STACK_OF(SCT) *SSL_get0_peer_scts(SSL *s)
     return NULL;
 }
 
-static int ct_permissive(const CT_POLICY_EVAL_CTX * ctx,
+static int ct_permissive(const CT_POLICY_EVAL_CTX *ctx,
                          const STACK_OF(SCT) *scts, void *unused_arg)
 {
     return 1;
 }
 
-static int ct_strict(const CT_POLICY_EVAL_CTX * ctx,
+static int ct_strict(const CT_POLICY_EVAL_CTX *ctx,
                      const STACK_OF(SCT) *scts, void *unused_arg)
 {
     int count = scts != NULL ? sk_SCT_num(scts) : 0;
@@ -6401,7 +6424,7 @@ int SSL_CTX_set_ctlog_list_file(SSL_CTX *ctx, const char *path)
     return CTLOG_STORE_load_file(ctx->ctlog_store, path);
 }
 
-void SSL_CTX_set0_ctlog_store(SSL_CTX *ctx, CTLOG_STORE * logs)
+void SSL_CTX_set0_ctlog_store(SSL_CTX *ctx, CTLOG_STORE *logs)
 {
     CTLOG_STORE_free(ctx->ctlog_store);
     ctx->ctlog_store = logs;
@@ -7295,37 +7318,43 @@ int SSL_get_event_timeout(SSL *s, struct timeval *tv, int *is_infinite)
 
 int SSL_get_rpoll_descriptor(SSL *s, BIO_POLL_DESCRIPTOR *desc)
 {
-#ifndef OPENSSL_NO_QUIC
-    if (!IS_QUIC(s))
-        return -1;
+    SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL(s);
 
-    return ossl_quic_get_rpoll_descriptor(s, desc);
-#else
-    return -1;
+#ifndef OPENSSL_NO_QUIC
+    if (IS_QUIC(s))
+        return ossl_quic_get_rpoll_descriptor(s, desc);
 #endif
+
+    if (sc == NULL || sc->rbio == NULL)
+        return 0;
+
+    return BIO_get_rpoll_descriptor(sc->rbio, desc);
 }
 
 int SSL_get_wpoll_descriptor(SSL *s, BIO_POLL_DESCRIPTOR *desc)
 {
-#ifndef OPENSSL_NO_QUIC
-    if (!IS_QUIC(s))
-        return -1;
+    SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL(s);
 
-    return ossl_quic_get_wpoll_descriptor(s, desc);
-#else
-    return -1;
+#ifndef OPENSSL_NO_QUIC
+    if (IS_QUIC(s))
+        return ossl_quic_get_wpoll_descriptor(s, desc);
 #endif
+
+    if (sc == NULL || sc->wbio == NULL)
+        return 0;
+
+    return BIO_get_wpoll_descriptor(sc->wbio, desc);
 }
 
 int SSL_net_read_desired(SSL *s)
 {
 #ifndef OPENSSL_NO_QUIC
     if (!IS_QUIC(s))
-        return 0;
+        return SSL_want_read(s);
 
     return ossl_quic_get_net_read_desired(s);
 #else
-    return 0;
+    return SSL_want_read(s);
 #endif
 }
 
@@ -7333,11 +7362,11 @@ int SSL_net_write_desired(SSL *s)
 {
 #ifndef OPENSSL_NO_QUIC
     if (!IS_QUIC(s))
-        return 0;
+        return SSL_want_write(s);
 
     return ossl_quic_get_net_write_desired(s);
 #else
-    return 0;
+    return SSL_want_write(s);
 #endif
 }
 
@@ -7453,6 +7482,18 @@ uint64_t SSL_get_stream_id(SSL *s)
     return ossl_quic_get_stream_id(s);
 #else
     return UINT64_MAX;
+#endif
+}
+
+int SSL_is_stream_local(SSL *s)
+{
+#ifndef OPENSSL_NO_QUIC
+    if (!IS_QUIC(s))
+        return -1;
+
+    return ossl_quic_is_stream_local(s);
+#else
+    return -1;
 #endif
 }
 

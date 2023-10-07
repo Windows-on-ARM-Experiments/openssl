@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2022-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -335,8 +335,6 @@ struct ossl_record_layer_st
     /* TLSv1.3 fields */
     /* static IV */
     unsigned char iv[EVP_MAX_IV_LENGTH];
-    /* static read IV */
-    unsigned char read_iv[EVP_MAX_IV_LENGTH];
     int allow_plain_alerts;
 
     /* TLS "any" fields */
