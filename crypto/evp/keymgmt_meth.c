@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2021 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2019-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -346,7 +346,7 @@ void *evp_keymgmt_gen_init(const EVP_KEYMGMT *keymgmt, int selection,
 }
 
 int evp_keymgmt_gen_set_template(const EVP_KEYMGMT *keymgmt, void *genctx,
-                                 void *template)
+                                 void *templ)
 {
     /*
      * It's arguable if we actually should return success in this case, as
@@ -356,7 +356,7 @@ int evp_keymgmt_gen_set_template(const EVP_KEYMGMT *keymgmt, void *genctx,
      */
     if (keymgmt->gen_set_template == NULL)
         return 1;
-    return keymgmt->gen_set_template(genctx, template);
+    return keymgmt->gen_set_template(genctx, templ);
 }
 
 int evp_keymgmt_gen_set_params(const EVP_KEYMGMT *keymgmt, void *genctx,

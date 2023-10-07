@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2016-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -186,8 +186,15 @@ DEFINE_RUN_ONCE_STATIC(ossl_init_load_crypto_strings)
      * pulling in all the error strings during static linking
      */
 #if !defined(OPENSSL_NO_ERR) && !defined(OPENSSL_NO_AUTOERRINIT)
+    void *err;
+
+    if (!err_shelve_state(&err))
+        return 0;
+
     OSSL_TRACE(INIT, "ossl_err_load_crypto_strings()\n");
     ret = ossl_err_load_crypto_strings();
+
+    err_unshelve_state(err);
 #endif
     return ret;
 }

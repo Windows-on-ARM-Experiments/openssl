@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2021 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2001-2023 The OpenSSL Project Authors. All Rights Reserved.
  * Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
@@ -652,6 +652,11 @@ int ossl_ec_key_simple_oct2priv(EC_KEY *eckey, const unsigned char *buf,
 int ossl_ec_key_simple_generate_key(EC_KEY *eckey);
 int ossl_ec_key_simple_generate_public_key(EC_KEY *eckey);
 int ossl_ec_key_simple_check_key(const EC_KEY *eckey);
+
+#ifdef ECP_SM2P256_ASM
+/* Returns optimized methods for SM2 */
+const EC_METHOD *EC_GFp_sm2p256_method(void);
+#endif
 
 int ossl_ec_curve_nid_from_params(const EC_GROUP *group, BN_CTX *ctx);
 

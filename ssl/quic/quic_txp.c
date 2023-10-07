@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2022-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -412,6 +412,7 @@ struct txp_pkt {
     QUIC_STREAM         *stream_head;
     QUIC_PKT_HDR        phdr;
     struct txp_pkt_geom geom;
+    int                 force_pad;
 };
 
 static QUIC_SSTREAM *get_sstream_by_id(uint64_t stream_id, uint32_t pn_space,
@@ -446,7 +447,7 @@ static int txp_pkt_postgen_update_pkt_overhead(struct txp_pkt *pkt,
 static int txp_pkt_append_padding(struct txp_pkt *pkt,
                                   OSSL_QUIC_TX_PACKETISER *txp, size_t num_bytes);
 static int txp_pkt_commit(OSSL_QUIC_TX_PACKETISER *txp, struct txp_pkt *pkt,
-                          uint32_t archetype);
+                          uint32_t archetype, int *txpim_pkt_reffed);
 static uint32_t txp_determine_archetype(OSSL_QUIC_TX_PACKETISER *txp,
                                         uint64_t cc_limit);
 
@@ -554,8 +555,8 @@ int ossl_quic_tx_packetiser_set_peer(OSSL_QUIC_TX_PACKETISER *txp,
                                      const BIO_ADDR *peer)
 {
     if (peer == NULL) {
-        ERR_raise(ERR_LIB_SSL, ERR_R_PASSED_NULL_PARAMETER);
-        return 0;
+        BIO_ADDR_clear(&txp->args.peer);
+        return 1;
     }
 
     txp->args.peer = *peer;
@@ -701,17 +702,20 @@ int ossl_quic_tx_packetiser_generate(OSSL_QUIC_TX_PACKETISER *txp,
      *      sent to the FIFM.
      *
      */
-    int res = TX_PACKETISER_RES_FAILURE, rc;
+    int res = 0, rc;
     uint32_t archetype, enc_level;
     uint32_t conn_close_enc_level = QUIC_ENC_LEVEL_NUM;
     struct txp_pkt pkt[QUIC_ENC_LEVEL_NUM];
     size_t pkts_done = 0;
     uint64_t cc_limit = txp->args.cc_method->get_tx_allowance(txp->args.cc_data);
+    int need_padding = 0, txpim_pkt_reffed;
 
     for (enc_level = QUIC_ENC_LEVEL_INITIAL;
          enc_level < QUIC_ENC_LEVEL_NUM;
          ++enc_level)
         pkt[enc_level].h_valid = 0;
+
+    memset(status, 0, sizeof(*status));
 
     /*
      * Should not be needed, but a sanity check in case anyone else has been
@@ -749,6 +753,12 @@ int ossl_quic_tx_packetiser_generate(OSSL_QUIC_TX_PACKETISER *txp,
         if (rc != TXP_ERR_SUCCESS)
             goto out;
 
+        if (pkt[enc_level].force_pad)
+            /*
+             * txp_generate_for_el emitted a frame which forces packet padding.
+             */
+            need_padding = 1;
+
         pkt[enc_level].geom.hwm = running_total
             + pkt[enc_level].h.bytes_appended
             + pkt[enc_level].geom.pkt_overhead;
@@ -756,34 +766,40 @@ int ossl_quic_tx_packetiser_generate(OSSL_QUIC_TX_PACKETISER *txp,
 
     /* 3. Packet Adjustment */
     if (pkt[QUIC_ENC_LEVEL_INITIAL].h_valid
-        && pkt[QUIC_ENC_LEVEL_INITIAL].h.bytes_appended > 0) {
+        && pkt[QUIC_ENC_LEVEL_INITIAL].h.bytes_appended > 0)
         /*
          * We have an Initial packet in this datagram, so we need to make sure
          * the total size of the datagram is adequate.
          */
+        need_padding = 1;
+
+    if (need_padding) {
         size_t total_dgram_size = 0;
         const size_t min_dpl = QUIC_MIN_INITIAL_DGRAM_LEN;
+        uint32_t first_el = QUIC_ENC_LEVEL_NUM;
 
         for (enc_level = QUIC_ENC_LEVEL_INITIAL;
              enc_level < QUIC_ENC_LEVEL_NUM;
              ++enc_level)
             if (pkt[enc_level].h_valid && pkt[enc_level].h.bytes_appended > 0) {
+                if (first_el == QUIC_ENC_LEVEL_NUM)
+                    first_el = enc_level;
+
                 txp_pkt_postgen_update_pkt_overhead(&pkt[enc_level], txp);
                 total_dgram_size += pkt[enc_level].geom.pkt_overhead
                     + pkt[enc_level].h.bytes_appended;
             }
 
-        if (total_dgram_size < min_dpl) {
+        if (first_el != QUIC_ENC_LEVEL_NUM
+            && total_dgram_size < min_dpl) {
             size_t deficit = min_dpl - total_dgram_size;
 
-            if (!txp_pkt_append_padding(&pkt[QUIC_ENC_LEVEL_INITIAL], txp, deficit))
+            if (!txp_pkt_append_padding(&pkt[first_el], txp, deficit))
                 goto out;
         }
     }
 
     /* 4. Commit */
-    memset(status, 0, sizeof(*status));
-
     for (enc_level = QUIC_ENC_LEVEL_INITIAL;
          enc_level < QUIC_ENC_LEVEL_NUM;
          ++enc_level) {
@@ -796,19 +812,28 @@ int ossl_quic_tx_packetiser_generate(OSSL_QUIC_TX_PACKETISER *txp,
             /* Nothing was generated for this EL, so skip. */
             continue;
 
-        if (!txp_pkt_commit(txp, &pkt[enc_level], archetype))
+        rc = txp_pkt_commit(txp, &pkt[enc_level], archetype,
+                            &txpim_pkt_reffed);
+        if (rc)
+            status->sent_ack_eliciting
+                = status->sent_ack_eliciting
+                || pkt[enc_level].tpkt->ackm_pkt.is_ack_eliciting;
+
+        if (txpim_pkt_reffed)
+            pkt[enc_level].tpkt = NULL; /* don't free */
+
+        if (!rc)
             goto out;
 
-        status->sent_ack_eliciting
-            = status->sent_ack_eliciting
-            || pkt[enc_level].tpkt->ackm_pkt.is_ack_eliciting;
-
-        pkt[enc_level].tpkt = NULL; /* don't free */
         ++pkts_done;
     }
 
+    status->sent_handshake
+        = (pkt[QUIC_ENC_LEVEL_HANDSHAKE].h_valid
+           && pkt[QUIC_ENC_LEVEL_HANDSHAKE].h.bytes_appended > 0);
+
     /* Flush & Cleanup */
-    res = TX_PACKETISER_RES_NO_PKT;
+    res = 1;
 out:
     ossl_qtx_finish_dgram(txp->args.qtx);
 
@@ -817,11 +842,9 @@ out:
          ++enc_level)
         txp_pkt_cleanup(&pkt[enc_level], txp);
 
-    /*
-     * If we already successfully did at least one, make sure we report this via
-     * the return code.
-     */
-    return pkts_done > 0 ? TX_PACKETISER_RES_SENT_PKT : res;
+    status->sent_pkt = pkts_done;
+
+    return res;
 }
 
 static const struct archetype_data archetypes[QUIC_ENC_LEVEL_NUM][TX_PACKETISER_ARCHETYPE_NUM] = {
@@ -1023,7 +1046,7 @@ static const struct archetype_data archetypes[QUIC_ENC_LEVEL_NUM][TX_PACKETISER_
             /*allow_crypto                    =*/ 1,
             /*allow_handshake_done            =*/ 1,
             /*allow_path_challenge            =*/ 0,
-            /*allow_path_response             =*/ 0,
+            /*allow_path_response             =*/ 1,
             /*allow_new_conn_id               =*/ 1,
             /*allow_retire_conn_id            =*/ 1,
             /*allow_stream_rel                =*/ 1,
@@ -1043,7 +1066,7 @@ static const struct archetype_data archetypes[QUIC_ENC_LEVEL_NUM][TX_PACKETISER_
             /*allow_crypto                    =*/ 1,
             /*allow_handshake_done            =*/ 1,
             /*allow_path_challenge            =*/ 0,
-            /*allow_path_response             =*/ 0,
+            /*allow_path_response             =*/ 1,
             /*allow_new_conn_id               =*/ 1,
             /*allow_retire_conn_id            =*/ 1,
             /*allow_stream_rel                =*/ 1,
@@ -1256,7 +1279,7 @@ static int txp_should_try_staging(OSSL_QUIC_TX_PACKETISER *txp,
      * This is not a major concern for clients, since if a client has a 1-RTT EL
      * provisioned the server is guaranteed to also have a 1-RTT EL provisioned.
      *
-     * TODO(QUIC): Revisit this when server support is added.
+     * TODO(QUIC SERVER): Revisit this when server support is added.
      */
     if (*conn_close_enc_level > enc_level
         && *conn_close_enc_level != QUIC_ENC_LEVEL_1RTT)
@@ -1339,6 +1362,10 @@ static int txp_should_try_staging(OSSL_QUIC_TX_PACKETISER *txp,
                 if (a.allow_new_token)
                     return 1;
                 break;
+            case OSSL_QUIC_FRAME_TYPE_PATH_RESPONSE:
+                if (a.allow_path_response)
+                    return 1;
+                break;
             default:
                 if (a.allow_cfq_other)
                     return 1;
@@ -1378,7 +1405,7 @@ static int sstream_is_pending(QUIC_SSTREAM *sstream)
 /* Determine how many bytes we should use for the encoded PN. */
 static size_t txp_determine_pn_len(OSSL_QUIC_TX_PACKETISER *txp)
 {
-    return 4; /* TODO(QUIC) */
+    return 4; /* TODO(QUIC FUTURE) */
 }
 
 /* Determine plaintext packet payload length from payload length. */
@@ -1504,6 +1531,7 @@ static int txp_pkt_init(struct txp_pkt *pkt, OSSL_QUIC_TX_PACKETISER *txp,
     pkt->h_valid            = 1;
     pkt->tpkt               = NULL;
     pkt->stream_head        = NULL;
+    pkt->force_pad          = 0;
     return 1;
 }
 
@@ -1776,6 +1804,7 @@ static int txp_generate_pre_token(OSSL_QUIC_TX_PACKETISER *txp,
             if (!tx_helper_commit(h))
                 return 0;
 
+            tpkt->had_conn_close = 1;
             *can_be_non_inflight = 0;
         } else {
             tx_helper_rollback(h);
@@ -1955,7 +1984,7 @@ static int txp_generate_crypto_frames(OSSL_QUIC_TX_PACKETISER *txp,
 
         /*
          * Ensure we have enough iovecs allocated (1 for the header, up to 2 for
-         * the the stream data.)
+         * the stream data.)
          */
         if (!txp_el_ensure_iovec(&txp->el[enc_level], h->num_iovec + 3))
             return 0; /* alloc error */
@@ -2205,7 +2234,7 @@ static int txp_generate_stream_frames(OSSL_QUIC_TX_PACKETISER *txp,
 
         /*
          * Ensure we have enough iovecs allocated (1 for the header, up to 2 for
-         * the the stream data.)
+         * the stream data.)
          */
         if (!txp_el_ensure_iovec(&txp->el[enc_level], h->num_iovec + 3))
             goto err; /* alloc error */
@@ -2614,6 +2643,17 @@ static int txp_generate_for_el(OSSL_QUIC_TX_PACKETISER *txp,
                         done_pre_token = 1;
 
                 break;
+            case OSSL_QUIC_FRAME_TYPE_PATH_RESPONSE:
+                if (!a.allow_path_response)
+                    continue;
+
+                /*
+                 * RFC 9000 s. 8.2.2: An endpoint MUST expand datagrams that
+                 * contain a PATH_RESPONSE frame to at least the smallest
+                 * allowed maximum datagram size of 1200 bytes.
+                 */
+                pkt->force_pad = 1;
+                break;
             default:
                 if (!a.allow_cfq_other)
                     continue;
@@ -2763,7 +2803,8 @@ fatal_err:
  */
 static int txp_pkt_commit(OSSL_QUIC_TX_PACKETISER *txp,
                           struct txp_pkt *pkt,
-                          uint32_t archetype)
+                          uint32_t archetype,
+                          int *txpim_pkt_reffed)
 {
     int rc = 1;
     uint32_t enc_level = pkt->h.enc_level;
@@ -2772,6 +2813,8 @@ static int txp_pkt_commit(OSSL_QUIC_TX_PACKETISER *txp,
     QUIC_STREAM *stream;
     OSSL_QTX_PKT txpkt;
     struct archetype_data a;
+
+    *txpim_pkt_reffed = 0;
 
     /* Cannot send a packet with an empty payload. */
     if (pkt->h.bytes_appended == 0)
@@ -2810,19 +2853,23 @@ static int txp_pkt_commit(OSSL_QUIC_TX_PACKETISER *txp,
     if (!ossl_quic_fifd_pkt_commit(&txp->fifd, tpkt))
         return 0;
 
+    /*
+     * Transmission and Post-Packet Generation Bookkeeping
+     * ===================================================
+     *
+     * No backing out anymore - at this point the ACKM has recorded the packet
+     * as having been sent, so we need to increment our next PN counter, or
+     * the ACKM will complain when we try to record a duplicate packet with
+     * the same PN later. At this point actually sending the packet may still
+     * fail. In this unlikely event it will simply be handled as though it
+     * were a lost packet.
+     */
+    ++txp->next_pn[pn_space];
+    *txpim_pkt_reffed = 1;
+
     /* Send the packet. */
     if (!ossl_qtx_write_pkt(txp->args.qtx, &txpkt))
         return 0;
-
-    /*
-     * Post-Packet Generation Bookkeeping
-     * ==================================
-     *
-     * No backing out anymore - we have sent the packet and need to record this
-     * fact.
-     */
-
-    ++txp->next_pn[pn_space];
 
     /*
      * Record FC and stream abort frames as sent; deactivate streams which no
@@ -2897,6 +2944,9 @@ static int txp_pkt_commit(OSSL_QUIC_TX_PACKETISER *txp,
 
     if (tpkt->had_ack_frame)
         txp->want_ack &= ~(1UL << pn_space);
+
+    if (tpkt->had_conn_close)
+        txp->want_conn_close = 0;
 
     /*
      * Decrement probe request counts if we have sent a packet that meets

@@ -47,7 +47,7 @@ static BIO *create_socket_bio(const char *hostname, const char *port,
      */
     for (ai = res; ai != NULL; ai = BIO_ADDRINFO_next(ai)) {
         /*
-         * Create a TCP socket. We could equally use non-OpenSSL calls such
+         * Create a UDP socket. We could equally use non-OpenSSL calls such
          * as "socket" here for this and the subsequent connect and close
          * functions. But for portability reasons and also so that we get
          * errors on the OpenSSL stack in the event of a failure we use
@@ -66,6 +66,7 @@ static BIO *create_socket_bio(const char *hostname, const char *port,
 
         /* Set to nonblocking mode */
         if (!BIO_socket_nbio(sock, 1)) {
+            BIO_closesocket(sock);
             sock = -1;
             continue;
         }
@@ -81,7 +82,6 @@ static BIO *create_socket_bio(const char *hostname, const char *port,
         }
     }
 
-
     /* Free the address information resources we allocated earlier */
     BIO_ADDRINFO_free(res);
 
@@ -89,10 +89,12 @@ static BIO *create_socket_bio(const char *hostname, const char *port,
     if (sock == -1)
         return NULL;
 
-    /* Create a BIO to wrap the socket*/
+    /* Create a BIO to wrap the socket */
     bio = BIO_new(BIO_s_datagram());
-    if (bio == NULL)
+    if (bio == NULL) {
         BIO_closesocket(sock);
+        return NULL;
+    }
 
     /*
      * Associate the newly created BIO with the underlying socket. By
@@ -123,7 +125,7 @@ static BIO *create_socket_bio(const char *hostname, const char *port,
 int main(void)
 {
     SSL_CTX *ctx = NULL;
-    SSL *ssl;
+    SSL *ssl = NULL;
     BIO *bio = NULL;
     int res = EXIT_FAILURE;
     int ret;
@@ -202,11 +204,13 @@ int main(void)
         goto end;
     }
 
-    if (!SSL_set_initial_peer_addr(ssl, peer_addr)) {
+    /* Set the IP address of the remote peer */
+    if (!SSL_set1_initial_peer_addr(ssl, peer_addr)) {
         printf("Failed to set the initial peer address\n");
         goto end;
     }
 
+    /* Connect to the server and perform the TLS handshake */
     if ((ret = SSL_connect(ssl)) < 1) {
         /*
          * If the failure is due to a verification error we can get more
@@ -245,15 +249,41 @@ int main(void)
      * Check whether we finished the while loop above normally or as the
      * result of an error. The 0 argument to SSL_get_error() is the return
      * code we received from the SSL_read_ex() call. It must be 0 in order
-     * to get here. Normal completion is indicated by SSL_ERROR_ZERO_RETURN.
+     * to get here. Normal completion is indicated by SSL_ERROR_ZERO_RETURN. In
+     * QUIC terms this means that the peer has sent FIN on the stream to
+     * indicate that no further data will be sent.
      */
-    if (SSL_get_error(ssl, 0) != SSL_ERROR_ZERO_RETURN) {
+    switch (SSL_get_error(ssl, 0)) {
+    case SSL_ERROR_ZERO_RETURN:
+        /* Normal completion of the stream */
+        break;
+
+    case SSL_ERROR_SSL:
         /*
-         * Some error occurred other than a graceful close down by the
-         * peer.
+         * Some stream fatal error occurred. This could be because of a stream
+         * reset - or some failure occurred on the underlying connection.
          */
+        switch (SSL_get_stream_read_state(ssl)) {
+        case SSL_STREAM_STATE_RESET_REMOTE:
+            printf("Stream reset occurred\n");
+            /* The stream has been reset but the connection is still healthy. */
+            break;
+
+        case SSL_STREAM_STATE_CONN_CLOSED:
+            printf("Connection closed\n");
+            /* Connection is already closed. Skip SSL_shutdown() */
+            goto end;
+
+        default:
+            printf("Unknown stream failure\n");
+            break;
+        }
+        break;
+
+    default:
+        /* Some other unexpected error occurred */
         printf ("Failed reading remaining data\n");
-        goto end;
+        break;
     }
 
     /*

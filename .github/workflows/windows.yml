@@ -1,4 +1,4 @@
-# Copyright 2021 The OpenSSL Project Authors. All Rights Reserved.
+# Copyright 2021-2023 The OpenSSL Project Authors. All Rights Reserved.
 #
 # Licensed under the Apache License 2.0 (the "License").  You may not use
 # this file except in compliance with the License.  You can obtain a copy
@@ -27,7 +27,7 @@ jobs:
             config: --strict-warnings no-fips
     runs-on: ${{matrix.os}}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: checkout fuzz/corpora submodule
       run: git submodule update --init --depth 1 fuzz/corpora
     - uses: ilammy/msvc-dev-cmd@v1
@@ -47,6 +47,18 @@ jobs:
     - name: build
       working-directory: _build
       run: nmake /S
+    - name: download coreinfo
+      uses: suisei-cn/actions-download-file@v1.4.0
+      with:
+        url: "https://download.sysinternals.com/files/Coreinfo.zip"
+        target: _build/coreinfo/
+    - name: get cpu info
+      working-directory: _build
+      continue-on-error: true
+      run: |
+        7z.exe x coreinfo/Coreinfo.zip
+        ./Coreinfo64.exe -accepteula -f
+        ./apps/openssl.exe version -c
     - name: test
       working-directory: _build
       run: nmake test VERBOSE_FAILURE=yes TESTS=-test_fuzz* HARNESS_JOBS=4
@@ -65,7 +77,7 @@ jobs:
           - windows-2022
     runs-on: ${{matrix.os}}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: checkout fuzz/corpora submodule
       run: git submodule update --init --depth 1 fuzz/corpora
     - uses: ilammy/msvc-dev-cmd@v1
@@ -80,6 +92,18 @@ jobs:
     - name: build
       working-directory: _build
       run: nmake /S
+    - name: download coreinfo
+      uses: suisei-cn/actions-download-file@v1.4.0
+      with:
+        url: "https://download.sysinternals.com/files/Coreinfo.zip"
+        target: _build/coreinfo/
+    - name: get cpu info
+      working-directory: _build
+      continue-on-error: true
+      run: |
+        7z.exe x coreinfo/Coreinfo.zip
+        ./Coreinfo64.exe -accepteula -f
+        ./apps/openssl.exe version -c
     - name: test
       working-directory: _build
       run: nmake test VERBOSE_FAILURE=yes HARNESS_JOBS=4
@@ -91,7 +115,7 @@ jobs:
           - windows-2022
     runs-on: ${{matrix.os}}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: checkout fuzz/corpora submodule
       run: git submodule update --init --depth 1 fuzz/corpora
     - uses: ilammy/msvc-dev-cmd@v1
@@ -106,6 +130,18 @@ jobs:
     - name: build
       working-directory: _build
       run: nmake # verbose, so no /S here
+    - name: download coreinfo
+      uses: suisei-cn/actions-download-file@v1.4.0
+      with:
+        url: "https://download.sysinternals.com/files/Coreinfo.zip"
+        target: _build/coreinfo/
+    - name: get cpu info
+      working-directory: _build
+      continue-on-error: true
+      run: |
+        7z.exe x coreinfo/Coreinfo.zip
+        ./Coreinfo64.exe -accepteula -f
+        ./apps/openssl.exe version -c
     - name: test
       working-directory: _build
       run: nmake test VERBOSE_FAILURE=yes TESTS=-test_fuzz* HARNESS_JOBS=4
@@ -131,7 +167,7 @@ jobs:
       MAKE_PARAMS: -j 4
     steps:
 # Checkout before cygwin can mess with PATH...
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: cygwin/cygwin-install-action@master
       with:
          packages: perl git make gcc-core

@@ -1,4 +1,4 @@
-# Copyright 2021-2022 The OpenSSL Project Authors. All Rights Reserved.
+# Copyright 2021-2023 The OpenSSL Project Authors. All Rights Reserved.
 #
 # Licensed under the Apache License 2.0 (the "License").  You may not use
 # this file except in compliance with the License.  You can obtain a copy
@@ -102,6 +102,7 @@ jobs:
           no-siphash,
           no-siv,
           no-sm2,
+          no-sm2-precomp,
           no-sm3,
           no-sm4,
           no-sock,
@@ -134,7 +135,7 @@ jobs:
         ]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: checkout fuzz/corpora submodule
       run: git submodule update --init --depth 1 fuzz/corpora
     - name: config
@@ -143,5 +144,9 @@ jobs:
       run: ./configdata.pm --dump
     - name: make
       run: make -s -j4
+    - name: get cpu info
+      run: |
+        cat /proc/cpuinfo
+        ./util/opensslwrap.sh version -c
     - name: make test
       run: make test HARNESS_JOBS=${HARNESS_JOBS:-4}

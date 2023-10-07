@@ -5,6 +5,20 @@
 
 # ifndef OPENSSL_NO_QUIC
 
+#  include <openssl/lhash.h>
+#  include "internal/list.h"
+
+
+typedef struct quic_srt_elem_st QUIC_SRT_ELEM;
+
+struct quic_srt_elem_st {
+    OSSL_LIST_MEMBER(stateless_reset_tokens, QUIC_SRT_ELEM);
+    QUIC_STATELESS_RESET_TOKEN token;
+    uint64_t seq_num;
+};
+
+DEFINE_LIST_OF(stateless_reset_tokens, QUIC_SRT_ELEM);
+
 /*
  * QUIC Channel Structure
  * ======================
@@ -74,7 +88,7 @@ struct quic_channel_st {
      * MAX_STREAMS signalling.
      */
     QUIC_TXFC                       conn_txfc;
-    QUIC_RXFC                       conn_rxfc;
+    QUIC_RXFC                       conn_rxfc, crypto_rxfc[QUIC_PN_SPACE_NUM];
     QUIC_RXFC                       max_streams_bidi_rxfc, max_streams_uni_rxfc;
     QUIC_STREAM_MAP                 qsm;
     OSSL_STATM                      statm;
@@ -127,12 +141,29 @@ struct quic_channel_st {
      */
     QUIC_CONN_ID                    retry_scid;
 
-    /* The DCID we currently use to talk to the peer and its sequence num. */
+    /*
+     * The DCID we currently use to talk to the peer and its sequence num.
+     *
+     * TODO(QUIC FUTURE) consider removing the second two, both are contained in
+     * srt_list_seq (defined below).
+     *
+     * cur_remote_seq_num is same as the sequence number in the last element.
+     * cur_retire_prior_to corresponds to the sequence number in first element.
+     *
+     * Leaving them here avoids null checking etc
+     */
     QUIC_CONN_ID                    cur_remote_dcid;
     uint64_t                        cur_remote_seq_num;
     uint64_t                        cur_retire_prior_to;
+
     /* Server only: The DCID we currently expect the peer to use to talk to us. */
     QUIC_CONN_ID                    cur_local_cid;
+
+    /* Hash of stateless reset tokens keyed on the token */
+    LHASH_OF(QUIC_SRT_ELEM)        *srt_hash_tok;
+
+    /* List of the stateless reset tokens ordered by sequence number */
+    OSSL_LIST(stateless_reset_tokens) srt_list_seq;
 
     /* Transport parameter values we send to our peer. */
     uint64_t                        tx_init_max_stream_data_bidi_local;
@@ -202,7 +233,10 @@ struct quic_channel_st {
      */
     uint64_t                        txku_threshold_override;
 
-   /* Valid if we are in the TERMINATING or TERMINATED states. */
+    /* Diagnostic counters for testing purposes only. May roll over. */
+    uint16_t                        diag_num_rx_ack; /* Number of ACK frames received */
+
+    /* Valid if we are in the TERMINATING or TERMINATED states. */
     QUIC_TERMINATE_CAUSE            terminate_cause;
 
     /*
@@ -269,6 +303,13 @@ struct quic_channel_st {
      *  be received and should be ignored if they do occur.)
      */
     unsigned int                    have_received_enc_pkt   : 1;
+
+    /*
+     * Have we successfully processed any packet, including a Version
+     * Negotiation packet? If so, further Version Negotiation packets should be
+     * ignored.
+     */
+    unsigned int                    have_processed_any_pkt  : 1;
 
     /*
      * Have we sent literally any packet yet? If not, there is no point polling
@@ -404,11 +445,26 @@ struct quic_channel_st {
     /* Permanent net error encountered */
     unsigned int                    net_error                           : 1;
 
+    /*
+     * Protocol error encountered. Note that you should refer to the state field
+     * rather than this. This is only used so we can ignore protocol errors
+     * after the first protocol error, but still record the first protocol error
+     * if it happens during the TERMINATING state.
+     */
+    unsigned int                    protocol_error                      : 1;
+
     /* Inhibit tick for testing purposes? */
     unsigned int                    inhibit_tick                        : 1;
 
+    /* Are we using addressed mode? */
+    unsigned int                    addressed_mode                      : 1;
+
     /* Saved error stack in case permanent error was encountered */
     ERR_STATE                       *err_state;
+
+    /* Scratch area for use by RXDP to store decoded ACK ranges. */
+    OSSL_QUIC_ACK_RANGE             *ack_range_scratch;
+    size_t                          num_ack_range_scratch;
 };
 
 # endif

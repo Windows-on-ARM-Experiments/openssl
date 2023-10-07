@@ -1,5 +1,5 @@
 /*
-* Copyright 2022 The OpenSSL Project Authors. All Rights Reserved.
+* Copyright 2022-2023 The OpenSSL Project Authors. All Rights Reserved.
 *
 * Licensed under the Apache License 2.0 (the "License").  You may not use
 * this file except in compliance with the License.  You can obtain a copy
@@ -297,8 +297,8 @@ struct quic_stream_st {
      *            reasonably certain no benefit would be gained by sending
      *            STOP_SENDING.]
      *
-     *            TODO(QUIC): Implement the latter case (currently we just
-     *                        always do STOP_SENDING).
+     *            TODO(QUIC FUTURE): Implement the latter case (currently we
+                                     just always do STOP_SENDING).
      *
      *         and;
      *
@@ -606,6 +606,17 @@ void ossl_quic_stream_map_update_state(QUIC_STREAM_MAP *qsm, QUIC_STREAM *s);
  * packets. The default value is 1.
  */
 void ossl_quic_stream_map_set_rr_stepping(QUIC_STREAM_MAP *qsm, size_t stepping);
+
+/*
+ * Returns 1 if the stream ordinal given is allowed by the current stream count
+ * flow control limit, assuming a locally initiated stream of a type described
+ * by is_uni.
+ *
+ * Note that stream_ordinal is a stream ordinal, not a stream ID.
+ */
+int ossl_quic_stream_map_is_local_allowed_by_stream_limit(QUIC_STREAM_MAP *qsm,
+                                                          uint64_t stream_ordinal,
+                                                          int is_uni);
 
 /*
  * Stream Send Part

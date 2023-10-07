@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2022-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -337,6 +337,17 @@ int ossl_qrx_set_late_validation_cb(OSSL_QRX *qrx,
  * establish a new connection.
  */
 void ossl_qrx_inject_urxe(OSSL_QRX *qrx, QUIC_URXE *e);
+
+/*
+ * Decryption of 1-RTT packets must be explicitly enabled by calling this
+ * function. This is to comply with the requirement that we not process 1-RTT
+ * packets until the handshake is complete, even if we already have 1-RTT
+ * secrets. Even if a 1-RTT secret is provisioned for the QRX, incoming 1-RTT
+ * packets will be handled as though no key is available until this function is
+ * called. Calling this function will then requeue any such deferred packets for
+ * processing.
+ */
+void ossl_qrx_allow_1rtt_processing(OSSL_QRX *qrx);
 
 /*
  * Key Update (RX)

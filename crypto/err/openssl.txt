@@ -1154,6 +1154,7 @@ RAND_R_FWRITE_ERROR:123:Error writing file
 RAND_R_GENERATE_ERROR:112:generate error
 RAND_R_INSUFFICIENT_DRBG_STRENGTH:139:insufficient drbg strength
 RAND_R_INTERNAL_ERROR:113:internal error
+RAND_R_INVALID_PROPERTY_QUERY:137:invalid property query
 RAND_R_IN_ERROR_STATE:114:in error state
 RAND_R_NOT_A_REGULAR_FILE:122:Not a regular file
 RAND_R_NOT_INSTANTIATED:115:not instantiated
@@ -1428,6 +1429,7 @@ SSL_R_LENGTH_TOO_LONG:404:length too long
 SSL_R_LENGTH_TOO_SHORT:160:length too short
 SSL_R_LIBRARY_BUG:274:library bug
 SSL_R_LIBRARY_HAS_NO_CIPHERS:161:library has no ciphers
+SSL_R_MAXIMUM_ENCRYPTED_PKTS_REACHED:395:maximum encrypted pkts reached
 SSL_R_MISSING_DSA_SIGNING_CERT:165:missing dsa signing cert
 SSL_R_MISSING_ECDSA_SIGNING_CERT:381:missing ecdsa signing cert
 SSL_R_MISSING_FATAL:256:missing fatal
@@ -1498,6 +1500,8 @@ SSL_R_PROTOCOL_IS_SHUTDOWN:207:protocol is shutdown
 SSL_R_PSK_IDENTITY_NOT_FOUND:223:psk identity not found
 SSL_R_PSK_NO_CLIENT_CB:224:psk no client cb
 SSL_R_PSK_NO_SERVER_CB:225:psk no server cb
+SSL_R_QUIC_HANDSHAKE_LAYER_ERROR:393:quic handshake layer error
+SSL_R_QUIC_NETWORK_ERROR:387:quic network error
 SSL_R_QUIC_PROTOCOL_ERROR:382:quic protocol error
 SSL_R_READ_BIO_NOT_SET:211:read bio not set
 SSL_R_READ_TIMEOUT_EXPIRED:312:read timeout expired
@@ -1560,6 +1564,7 @@ SSL_R_SSL_SESSION_ID_HAS_BAD_LENGTH:303:ssl session id has bad length
 SSL_R_SSL_SESSION_ID_TOO_LONG:408:ssl session id too long
 SSL_R_SSL_SESSION_VERSION_MISMATCH:210:ssl session version mismatch
 SSL_R_STILL_IN_INIT:121:still in init
+SSL_R_STREAM_COUNT_LIMITED:411:stream count limited
 SSL_R_STREAM_FINISHED:365:stream finished
 SSL_R_STREAM_RECV_ONLY:366:stream recv only
 SSL_R_STREAM_RESET:375:stream reset

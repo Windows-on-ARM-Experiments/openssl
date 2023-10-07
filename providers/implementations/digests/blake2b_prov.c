@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2021 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2016-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -121,8 +121,7 @@ static void blake2b_init_param(BLAKE2B_CTX *S, const BLAKE2B_PARAM *P)
 /* Initialize the parameter block with default values */
 void ossl_blake2b_param_init(BLAKE2B_PARAM *P)
 {
-    if (P->digest_length == 0)
-        P->digest_length = BLAKE2B_DIGEST_LENGTH;
+    P->digest_length = BLAKE2B_DIGEST_LENGTH;
     P->key_length    = 0;
     P->fanout        = 1;
     P->depth         = 1;

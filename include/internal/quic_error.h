@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2022-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -35,7 +35,21 @@
 
 /* Inclusive range for handshake-specific errors. */
 #  define QUIC_ERR_CRYPTO_ERR_BEGIN          0x0100
-#  define QUUC_ERR_CRYPTO_ERR_END            0x01FF
+#  define QUIC_ERR_CRYPTO_ERR_END            0x01FF
+
+#  define QUIC_ERR_CRYPTO_ERR(X) \
+    (QUIC_ERR_CRYPTO_ERR_BEGIN + (X))
+
+#  define QUIC_ERR_CRYPTO_UNEXPECTED_MESSAGE \
+    QUIC_ERR_CRYPTO_ERR(SSL3_AD_UNEXPECTED_MESSAGE)
+
+#  define QUIC_ERR_CRYPTO_MISSING_EXT \
+    QUIC_ERR_CRYPTO_ERR(TLS13_AD_MISSING_EXTENSION)
+
+#  define QUIC_ERR_CRYPTO_NO_APP_PROTO \
+    QUIC_ERR_CRYPTO_ERR(TLS1_AD_NO_APPLICATION_PROTOCOL)
+
+const char *ossl_quic_err_to_string(uint64_t error_code);
 
 # endif
 

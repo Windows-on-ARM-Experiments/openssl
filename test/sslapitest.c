@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2016-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -77,8 +77,6 @@ static int find_session_cb(SSL *ssl, const unsigned char *identity,
 
 static int use_session_cb_cnt = 0;
 static int find_session_cb_cnt = 0;
-
-static SSL_SESSION *create_a_psk(SSL *ssl, size_t mdsize);
 #endif
 
 static char *certsdir = NULL;
@@ -1712,6 +1710,8 @@ end:
     return testresult;
 }
 
+#if !defined(OPENSSL_NO_TLS1_2) || !defined(OSSL_NO_USABLE_TLS1_3) \
+    || !defined(OPENSSL_NO_DTLS)
 static int execute_cleanse_plaintext(const SSL_METHOD *smeth,
                                      const SSL_METHOD *cmeth,
                                      int min_version, int max_version)
@@ -1734,15 +1734,13 @@ static int execute_cleanse_plaintext(const SSL_METHOD *smeth,
                                        privkey)))
         goto end;
 
-#ifdef OPENSSL_NO_DTLS1_2
-    if (smeth == DTLS_server_method()) {
 # ifdef OPENSSL_NO_DTLS1_2
+    if (smeth == DTLS_server_method()) {
         /* Not supported in the FIPS provider */
         if (is_fips) {
             testresult = 1;
             goto end;
         };
-# endif
         /*
          * Default sigalgs are SHA1 based in <DTLS1.2 which is in security
          * level 0
@@ -1752,7 +1750,7 @@ static int execute_cleanse_plaintext(const SSL_METHOD *smeth,
                                                     "DEFAULT:@SECLEVEL=0")))
             goto end;
     }
-#endif
+# endif
 
     if (!TEST_true(create_ssl_objects(sctx, cctx, &serverssl, &clientssl,
                                       NULL, NULL)))
@@ -1819,6 +1817,10 @@ static int execute_cleanse_plaintext(const SSL_METHOD *smeth,
 
     return testresult;
 }
+#endif /*
+        * !defined(OPENSSL_NO_TLS1_2) || !defined(OSSL_NO_USABLE_TLS1_3)
+        * || !defined(OPENSSL_NO_DTLS)
+        */
 
 static int test_cleanse_plaintext(void)
 {
@@ -3380,51 +3382,6 @@ static unsigned int psk_server_cb(SSL *ssl, const char *identity,
 #define MSG5    "a"
 #define MSG6    "test"
 #define MSG7    "message."
-
-#define TLS13_AES_128_GCM_SHA256_BYTES  ((const unsigned char *)"\x13\x01")
-#define TLS13_AES_256_GCM_SHA384_BYTES  ((const unsigned char *)"\x13\x02")
-#define TLS13_CHACHA20_POLY1305_SHA256_BYTES ((const unsigned char *)"\x13\x03")
-#define TLS13_AES_128_CCM_SHA256_BYTES ((const unsigned char *)"\x13\x04")
-#define TLS13_AES_128_CCM_8_SHA256_BYTES ((const unsigned char *)"\x13\05")
-
-
-static SSL_SESSION *create_a_psk(SSL *ssl, size_t mdsize)
-{
-    const SSL_CIPHER *cipher = NULL;
-    const unsigned char key[] = {
-        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a,
-        0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15,
-        0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20,
-        0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b,
-        0x2c, 0x2d, 0x2e, 0x2f /* SHA384_DIGEST_LENGTH bytes */
-    };
-    SSL_SESSION *sess = NULL;
-
-    if (mdsize == SHA384_DIGEST_LENGTH) {
-        cipher = SSL_CIPHER_find(ssl, TLS13_AES_256_GCM_SHA384_BYTES);
-    } else if (mdsize == SHA256_DIGEST_LENGTH) {
-        /*
-         * Any ciphersuite using SHA256 will do - it will be compatible with
-         * the actual ciphersuite selected as long as it too is based on SHA256
-         */
-        cipher = SSL_CIPHER_find(ssl, TLS13_AES_128_GCM_SHA256_BYTES);
-    } else {
-        /* Should not happen */
-        return NULL;
-    }
-    sess = SSL_SESSION_new();
-    if (!TEST_ptr(sess)
-            || !TEST_ptr(cipher)
-            || !TEST_true(SSL_SESSION_set1_master_key(sess, key, mdsize))
-            || !TEST_true(SSL_SESSION_set_cipher(sess, cipher))
-            || !TEST_true(
-                    SSL_SESSION_set_protocol_version(sess,
-                                                     TLS1_3_VERSION))) {
-        SSL_SESSION_free(sess);
-        return NULL;
-    }
-    return sess;
-}
 
 static int artificial_ticket_time = 0;
 
@@ -6644,7 +6601,9 @@ static int test_key_update_peer_in_write(int tst)
 
     /* Write data that we know will fail with SSL_ERROR_WANT_WRITE */
     if (!TEST_int_eq(SSL_write(peerwrite, mess, strlen(mess)), -1)
-            || !TEST_int_eq(SSL_get_error(peerwrite, 0), SSL_ERROR_WANT_WRITE))
+            || !TEST_int_eq(SSL_get_error(peerwrite, 0), SSL_ERROR_WANT_WRITE)
+            || !TEST_true(SSL_want_write(peerwrite))
+            || !TEST_true(SSL_net_write_desired(peerwrite)))
         goto end;
 
     /* Reinstate the original writing endpoint's write BIO */
@@ -6653,7 +6612,9 @@ static int test_key_update_peer_in_write(int tst)
 
     /* Now read some data - we will read the key update */
     if (!TEST_int_eq(SSL_read(peerwrite, buf, sizeof(buf)), -1)
-            || !TEST_int_eq(SSL_get_error(peerwrite, 0), SSL_ERROR_WANT_READ))
+            || !TEST_int_eq(SSL_get_error(peerwrite, 0), SSL_ERROR_WANT_READ)
+            || !TEST_true(SSL_want_read(peerwrite))
+            || !TEST_true(SSL_net_read_desired(peerwrite)))
         goto end;
 
     /*
@@ -6667,6 +6628,11 @@ static int test_key_update_peer_in_write(int tst)
     /* Write more data to ensure we send the KeyUpdate message back */
     if (!TEST_int_eq(SSL_write(peerwrite, mess, strlen(mess)), strlen(mess))
             || !TEST_int_eq(SSL_read(peerupdate, buf, sizeof(buf)), strlen(mess)))
+        goto end;
+
+    if (!TEST_false(SSL_net_read_desired(peerwrite))
+        || !TEST_false(SSL_net_write_desired(peerwrite))
+        || !TEST_int_eq(SSL_want(peerwrite), SSL_NOTHING))
         goto end;
 
     testresult = 1;
@@ -9050,7 +9016,7 @@ static int test_session_timeout(int test)
      * Test session ordering and timeout
      * Can't explicitly test performance of the new code,
      * but can test to see if the ordering of the sessions
-     * are correct, and they they are removed as expected
+     * are correct, and they are removed as expected
      */
     SSL_SESSION *early = NULL;
     SSL_SESSION *middle = NULL;
@@ -9545,7 +9511,7 @@ static int test_pluggable_group(int idx)
  */
 static int create_cert_key(int idx, char *certfilename, char *privkeyfilename)
 {
-    EVP_PKEY_CTX * evpctx = EVP_PKEY_CTX_new_from_name(libctx,
+    EVP_PKEY_CTX *evpctx = EVP_PKEY_CTX_new_from_name(libctx,
                              (idx == 0) ? "xorhmacsig" : "xorhmacsha2sig", NULL);
     EVP_PKEY *pkey = NULL;
     X509 *x509 = X509_new();

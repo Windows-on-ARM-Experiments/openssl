@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2022-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -40,6 +40,7 @@ typedef struct quic_txpim_pkt_st {
     unsigned int        had_max_streams_bidi_frame  : 1;
     unsigned int        had_max_streams_uni_frame   : 1;
     unsigned int        had_ack_frame               : 1;
+    unsigned int        had_conn_close              : 1;
 
     /* Private data follows. */
 } QUIC_TXPIM_PKT;

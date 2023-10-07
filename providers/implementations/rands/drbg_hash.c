@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2021 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2011-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -405,9 +405,9 @@ static int drbg_hash_verify_zeroization(void *vdrbg)
     if (drbg->lock != NULL && !CRYPTO_THREAD_read_lock(drbg->lock))
         return 0;
 
-    PROV_DRBG_VERYIFY_ZEROIZATION(hash->V);
-    PROV_DRBG_VERYIFY_ZEROIZATION(hash->C);
-    PROV_DRBG_VERYIFY_ZEROIZATION(hash->vtmp);
+    PROV_DRBG_VERIFY_ZEROIZATION(hash->V);
+    PROV_DRBG_VERIFY_ZEROIZATION(hash->C);
+    PROV_DRBG_VERIFY_ZEROIZATION(hash->vtmp);
 
     ret = 1;
  err:

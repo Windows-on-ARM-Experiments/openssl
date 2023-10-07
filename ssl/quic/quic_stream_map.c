@@ -1,5 +1,5 @@
 /*
-* Copyright 2022 The OpenSSL Project Authors. All Rights Reserved.
+* Copyright 2022-2023 The OpenSSL Project Authors. All Rights Reserved.
 *
 * Licensed under the Apache License 2.0 (the "License").  You may not use
 * this file except in compliance with the License.  You can obtain a copy
@@ -290,7 +290,7 @@ static ossl_unused int qsm_send_part_permits_gc(const QUIC_STREAM *qs)
 
 static int qsm_ready_for_gc(QUIC_STREAM_MAP *qsm, QUIC_STREAM *qs)
 {
-    int recv_stream_fully_drained = 0; /* TODO(QUIC): Optimisation */
+    int recv_stream_fully_drained = 0; /* TODO(QUIC FUTURE): Optimisation */
 
     /*
      * If sstream has no FIN, we auto-reset it at marked-for-deletion time, so
@@ -311,19 +311,31 @@ static int qsm_ready_for_gc(QUIC_STREAM_MAP *qsm, QUIC_STREAM *qs)
             || qs->send_state == QUIC_SSTREAM_STATE_RESET_RECVD);
 }
 
+int ossl_quic_stream_map_is_local_allowed_by_stream_limit(QUIC_STREAM_MAP *qsm,
+                                                          uint64_t stream_ordinal,
+                                                          int is_uni)
+{
+    uint64_t stream_limit;
+
+    if (qsm->get_stream_limit_cb == NULL)
+        return 1;
+
+    stream_limit = qsm->get_stream_limit_cb(is_uni, qsm->get_stream_limit_cb_arg);
+    return stream_ordinal < stream_limit;
+}
+
 void ossl_quic_stream_map_update_state(QUIC_STREAM_MAP *qsm, QUIC_STREAM *s)
 {
     int should_be_active, allowed_by_stream_limit = 1;
 
-    if (qsm->get_stream_limit_cb != NULL
-        && ossl_quic_stream_is_server_init(s) == qsm->is_server) {
-        int uni = !ossl_quic_stream_is_bidi(s);
-        uint64_t stream_limit, stream_ordinal = s->id >> 2;
+    if (ossl_quic_stream_is_server_init(s) == qsm->is_server) {
+        int is_uni = !ossl_quic_stream_is_bidi(s);
+        uint64_t stream_ordinal = s->id >> 2;
 
-        stream_limit
-            = qsm->get_stream_limit_cb(uni, qsm->get_stream_limit_cb_arg);
-
-        allowed_by_stream_limit = (stream_ordinal < stream_limit);
+        allowed_by_stream_limit
+            = ossl_quic_stream_map_is_local_allowed_by_stream_limit(qsm,
+                                                                    stream_ordinal,
+                                                                    is_uni);
     }
 
     if (s->send_state == QUIC_SSTREAM_STATE_DATA_SENT

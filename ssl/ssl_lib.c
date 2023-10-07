@@ -609,7 +609,6 @@ int ossl_ssl_connection_reset(SSL *s)
 
     ossl_statem_clear(sc);
 
-    /* TODO(QUIC): Version handling not yet clear */
     sc->version = s->method->version;
     sc->client_version = sc->version;
     sc->rwstate = SSL_NOTHING;
@@ -1997,7 +1996,7 @@ STACK_OF(X509) *SSL_get_peer_cert_chain(const SSL *s)
 int SSL_copy_session_id(SSL *t, const SSL *f)
 {
     int i;
-    /* TODO(QUIC): Not allowed for QUIC currently. */
+    /* TODO(QUIC FUTURE): Not allowed for QUIC currently. */
     SSL_CONNECTION *tsc = SSL_CONNECTION_FROM_SSL_ONLY(t);
     const SSL_CONNECTION *fsc = SSL_CONNECTION_FROM_CONST_SSL_ONLY(f);
 
@@ -2654,7 +2653,7 @@ int SSL_write_early_data(SSL *s, const void *buf, size_t num, size_t *written)
     uint32_t partialwrite;
     SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL_ONLY(s);
 
-    /* TODO(QUIC): This will need special handling for QUIC */
+    /* TODO(QUIC 0RTT): This will need special handling for QUIC */
     if (sc == NULL)
         return 0;
 
@@ -2901,21 +2900,36 @@ int SSL_new_session_ticket(SSL *s)
 
 long SSL_ctrl(SSL *s, int cmd, long larg, void *parg)
 {
+    return ossl_ctrl_internal(s, cmd, larg, parg, /*no_quic=*/0);
+}
+
+long ossl_ctrl_internal(SSL *s, int cmd, long larg, void *parg, int no_quic)
+{
     long l;
     SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL(s);
 
-    /* TODO(QUIC): Special handling for some ctrls will be needed */
-    if (sc == NULL)
-        return 0;
+    /*
+     * Routing of ctrl calls for QUIC is a little counterintuitive:
+     *
+     *   - Firstly (no_quic=0), we pass the ctrl directly to our QUIC
+     *     implementation in case it wants to handle the ctrl specially.
+     *
+     *   - If our QUIC implementation does not care about the ctrl, it
+     *     will reenter this function with no_quic=1 and we will try to handle
+     *     it directly using the QCSO SSL object stub (not the handshake layer
+     *     SSL object). This is important for e.g. the version configuration
+     *     ctrls below, which must use s->defltmeth (and not sc->defltmeth).
+     *
+     *   - If we don't handle a ctrl here specially, then processing is
+     *     redirected to the handshake layer SSL object.
+     */
+    if (!no_quic && IS_QUIC(s))
+        return s->method->ssl_ctrl(s, cmd, larg, parg);
 
     switch (cmd) {
     case SSL_CTRL_GET_READ_AHEAD:
-        if (IS_QUIC(s))
-            return 0;
         return RECORD_LAYER_get_read_ahead(&sc->rlayer);
     case SSL_CTRL_SET_READ_AHEAD:
-        if (IS_QUIC(s))
-            return 0;
         l = RECORD_LAYER_get_read_ahead(&sc->rlayer);
         RECORD_LAYER_set_read_ahead(&sc->rlayer, larg);
         return l;
@@ -2946,7 +2960,7 @@ long SSL_ctrl(SSL *s, int cmd, long larg, void *parg)
         sc->max_cert_list = (size_t)larg;
         return l;
     case SSL_CTRL_SET_MAX_SEND_FRAGMENT:
-        if (larg < 512 || larg > SSL3_RT_MAX_PLAIN_LENGTH || IS_QUIC(s))
+        if (larg < 512 || larg > SSL3_RT_MAX_PLAIN_LENGTH)
             return 0;
 #ifndef OPENSSL_NO_KTLS
         if (sc->wbio != NULL && BIO_get_ktls_send(sc->wbio))
@@ -2958,12 +2972,12 @@ long SSL_ctrl(SSL *s, int cmd, long larg, void *parg)
         sc->rlayer.wrlmethod->set_max_frag_len(sc->rlayer.wrl, larg);
         return 1;
     case SSL_CTRL_SET_SPLIT_SEND_FRAGMENT:
-        if ((size_t)larg > sc->max_send_fragment || larg == 0 || IS_QUIC(s))
+        if ((size_t)larg > sc->max_send_fragment || larg == 0)
             return 0;
         sc->split_send_fragment = larg;
         return 1;
     case SSL_CTRL_SET_MAX_PIPELINES:
-        if (larg < 1 || larg > SSL_MAX_PIPELINES || IS_QUIC(s))
+        if (larg < 1 || larg > SSL_MAX_PIPELINES)
             return 0;
         sc->max_pipelines = larg;
         if (sc->rlayer.rrlmethod->set_max_pipelines != NULL)
@@ -3008,7 +3022,10 @@ long SSL_ctrl(SSL *s, int cmd, long larg, void *parg)
     case SSL_CTRL_GET_MAX_PROTO_VERSION:
         return sc->max_proto_version;
     default:
-        return s->method->ssl_ctrl(s, cmd, larg, parg);
+        if (IS_QUIC(s))
+            return SSL_ctrl((SSL *)sc, cmd, larg, parg);
+        else
+            return s->method->ssl_ctrl(s, cmd, larg, parg);
     }
 }
 
@@ -3380,14 +3397,14 @@ char *SSL_get_shared_ciphers(const SSL *s, char *buf, int size)
         if (sk_SSL_CIPHER_find(srvrsk, c) < 0)
             continue;
 
-        n = strlen(c->name);
-        if (n + 1 > size) {
+        n = OPENSSL_strnlen(c->name, size);
+        if (n >= size) {
             if (p != buf)
                 --p;
             *p = '\0';
             return buf;
         }
-        strcpy(p, c->name);
+        memcpy(p, c->name, n);
         p += n;
         *(p++) = ':';
         size -= n + 1;
@@ -4560,6 +4577,11 @@ int SSL_set_ssl_method(SSL *s, const SSL_METHOD *meth)
 
 int SSL_get_error(const SSL *s, int i)
 {
+    return ossl_ssl_get_error(s, i, /*check_err=*/1);
+}
+
+int ossl_ssl_get_error(const SSL *s, int i, int check_err)
+{
     int reason;
     unsigned long l;
     BIO *bio;
@@ -4583,7 +4605,7 @@ int SSL_get_error(const SSL *s, int i)
      * Make things return SSL_ERROR_SYSCALL when doing SSL_do_handshake etc,
      * where we do encode the error
      */
-    if ((l = ERR_peek_error()) != 0) {
+    if (check_err && (l = ERR_peek_error()) != 0) {
         if (ERR_GET_LIB(l) == ERR_LIB_SYS)
             return SSL_ERROR_SYSCALL;
         else
@@ -4868,7 +4890,7 @@ SSL *SSL_dup(SSL *s)
 {
     SSL *ret;
     int i;
-    /* TODO(QUIC): Add a SSL_METHOD function for duplication */
+    /* TODO(QUIC FUTURE): Add a SSL_METHOD function for duplication */
     SSL_CONNECTION *retsc;
     SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL_ONLY(s);
 
@@ -5169,7 +5191,6 @@ int SSL_version(const SSL *s)
     if (s->type == SSL_TYPE_QUIC_CONNECTION || s->type == SSL_TYPE_QUIC_XSO)
         return OSSL_QUIC1_VERSION;
 #endif
-    /* TODO(QUIC): Do we want to report QUIC version this way instead? */
     if (sc == NULL)
         return 0;
 
@@ -5180,7 +5201,11 @@ int SSL_client_version(const SSL *s)
 {
     const SSL_CONNECTION *sc = SSL_CONNECTION_FROM_CONST_SSL(s);
 
-    /* TODO(QUIC): Do we want to report QUIC version this way instead? */
+#ifndef OPENSSL_NO_QUIC
+    /* We only support QUICv1 - so if its QUIC its QUICv1 */
+    if (s->type == SSL_TYPE_QUIC_CONNECTION || s->type == SSL_TYPE_QUIC_XSO)
+        return OSSL_QUIC1_VERSION;
+#endif
     if (sc == NULL)
         return 0;
 
@@ -5197,7 +5222,7 @@ SSL_CTX *SSL_set_SSL_CTX(SSL *ssl, SSL_CTX *ctx)
     CERT *new_cert;
     SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL_ONLY(ssl);
 
-    /* TODO(QUIC): Do we need this for QUIC support? */
+    /* TODO(QUIC FUTURE): Add support for QUIC */
     if (sc == NULL)
         return NULL;
 
@@ -5475,6 +5500,11 @@ void SSL_CTX_set1_cert_store(SSL_CTX *ctx, X509_STORE *store)
 int SSL_want(const SSL *s)
 {
     const SSL_CONNECTION *sc = SSL_CONNECTION_FROM_CONST_SSL(s);
+
+#ifndef OPENSSL_NO_QUIC
+    if (IS_QUIC(s))
+        return ossl_quic_want(s);
+#endif
 
     if (sc == NULL)
         return SSL_NOTHING;
@@ -6167,13 +6197,13 @@ const STACK_OF(SCT) *SSL_get0_peer_scts(SSL *s)
     return NULL;
 }
 
-static int ct_permissive(const CT_POLICY_EVAL_CTX * ctx,
+static int ct_permissive(const CT_POLICY_EVAL_CTX *ctx,
                          const STACK_OF(SCT) *scts, void *unused_arg)
 {
     return 1;
 }
 
-static int ct_strict(const CT_POLICY_EVAL_CTX * ctx,
+static int ct_strict(const CT_POLICY_EVAL_CTX *ctx,
                      const STACK_OF(SCT) *scts, void *unused_arg)
 {
     int count = scts != NULL ? sk_SCT_num(scts) : 0;
@@ -6394,7 +6424,7 @@ int SSL_CTX_set_ctlog_list_file(SSL_CTX *ctx, const char *path)
     return CTLOG_STORE_load_file(ctx->ctlog_store, path);
 }
 
-void SSL_CTX_set0_ctlog_store(SSL_CTX *ctx, CTLOG_STORE * logs)
+void SSL_CTX_set0_ctlog_store(SSL_CTX *ctx, CTLOG_STORE *logs)
 {
     CTLOG_STORE_free(ctx->ctlog_store);
     ctx->ctlog_store = logs;
@@ -7288,37 +7318,43 @@ int SSL_get_event_timeout(SSL *s, struct timeval *tv, int *is_infinite)
 
 int SSL_get_rpoll_descriptor(SSL *s, BIO_POLL_DESCRIPTOR *desc)
 {
-#ifndef OPENSSL_NO_QUIC
-    if (!IS_QUIC(s))
-        return -1;
+    SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL(s);
 
-    return ossl_quic_get_rpoll_descriptor(s, desc);
-#else
-    return -1;
+#ifndef OPENSSL_NO_QUIC
+    if (IS_QUIC(s))
+        return ossl_quic_get_rpoll_descriptor(s, desc);
 #endif
+
+    if (sc == NULL || sc->rbio == NULL)
+        return 0;
+
+    return BIO_get_rpoll_descriptor(sc->rbio, desc);
 }
 
 int SSL_get_wpoll_descriptor(SSL *s, BIO_POLL_DESCRIPTOR *desc)
 {
-#ifndef OPENSSL_NO_QUIC
-    if (!IS_QUIC(s))
-        return -1;
+    SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL(s);
 
-    return ossl_quic_get_wpoll_descriptor(s, desc);
-#else
-    return -1;
+#ifndef OPENSSL_NO_QUIC
+    if (IS_QUIC(s))
+        return ossl_quic_get_wpoll_descriptor(s, desc);
 #endif
+
+    if (sc == NULL || sc->wbio == NULL)
+        return 0;
+
+    return BIO_get_wpoll_descriptor(sc->wbio, desc);
 }
 
 int SSL_net_read_desired(SSL *s)
 {
 #ifndef OPENSSL_NO_QUIC
     if (!IS_QUIC(s))
-        return 0;
+        return SSL_want_read(s);
 
     return ossl_quic_get_net_read_desired(s);
 #else
-    return 0;
+    return SSL_want_read(s);
 #endif
 }
 
@@ -7326,11 +7362,11 @@ int SSL_net_write_desired(SSL *s)
 {
 #ifndef OPENSSL_NO_QUIC
     if (!IS_QUIC(s))
-        return 0;
+        return SSL_want_write(s);
 
     return ossl_quic_get_net_write_desired(s);
 #else
-    return 0;
+    return SSL_want_write(s);
 #endif
 }
 
@@ -7358,7 +7394,7 @@ int SSL_get_blocking_mode(SSL *s)
 #endif
 }
 
-int SSL_set_initial_peer_addr(SSL *s, const BIO_ADDR *peer_addr)
+int SSL_set1_initial_peer_addr(SSL *s, const BIO_ADDR *peer_addr)
 {
 #ifndef OPENSSL_NO_QUIC
     if (!IS_QUIC(s))
@@ -7446,6 +7482,18 @@ uint64_t SSL_get_stream_id(SSL *s)
     return ossl_quic_get_stream_id(s);
 #else
     return UINT64_MAX;
+#endif
+}
+
+int SSL_is_stream_local(SSL *s)
+{
+#ifndef OPENSSL_NO_QUIC
+    if (!IS_QUIC(s))
+        return -1;
+
+    return ossl_quic_is_stream_local(s);
+#else
+    return -1;
 #endif
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 1995-2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 1995-2023 The OpenSSL Project Authors. All Rights Reserved.
  * Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved
  * Copyright 2005 Nokia. All rights reserved.
  *
@@ -47,7 +47,7 @@ static SSL_CIPHER tls13_ciphers[] = {
         TLS1_3_VERSION, TLS1_3_VERSION,
         0, 0,
         SSL_HIGH,
-        SSL_HANDSHAKE_MAC_SHA256,
+        SSL_HANDSHAKE_MAC_SHA256 | SSL_QUIC,
         128,
         128,
     }, {
@@ -62,7 +62,7 @@ static SSL_CIPHER tls13_ciphers[] = {
         TLS1_3_VERSION, TLS1_3_VERSION,
         0, 0,
         SSL_HIGH,
-        SSL_HANDSHAKE_MAC_SHA384,
+        SSL_HANDSHAKE_MAC_SHA384 | SSL_QUIC,
         256,
         256,
     },
@@ -78,7 +78,7 @@ static SSL_CIPHER tls13_ciphers[] = {
         TLS1_3_VERSION, TLS1_3_VERSION,
         0, 0,
         SSL_HIGH,
-        SSL_HANDSHAKE_MAC_SHA256,
+        SSL_HANDSHAKE_MAC_SHA256 | SSL_QUIC,
         256,
         256,
     },
@@ -3380,6 +3380,7 @@ void ssl3_free(SSL *s)
 int ssl3_clear(SSL *s)
 {
     SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL(s);
+    int flags;
 
     if (sc == NULL)
         return 0;
@@ -3401,8 +3402,13 @@ int ssl3_clear(SSL *s)
     OPENSSL_free(sc->s3.alpn_selected);
     OPENSSL_free(sc->s3.alpn_proposed);
 
-    /* NULL/zero-out everything in the s3 struct */
+    /*
+     * NULL/zero-out everything in the s3 struct, but remember if we are doing
+     * QUIC.
+     */
+    flags = sc->s3.flags & TLS1_FLAGS_QUIC;
     memset(&sc->s3, 0, sizeof(sc->s3));
+    sc->s3.flags |= flags;
 
     if (!ssl_free_wbio_buffer(sc))
         return 0;

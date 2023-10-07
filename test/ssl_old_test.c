@@ -1,5 +1,5 @@
 /*
- * Copyright 1995-2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 1995-2023 The OpenSSL Project Authors. All Rights Reserved.
  * Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved
  * Copyright 2005 Nokia. All rights reserved.
  *
@@ -331,6 +331,18 @@ static int verify_alpn(SSL *client, SSL *server)
 
     OPENSSL_free(alpn_selected);
     alpn_selected = NULL;
+
+    if (client_proto == NULL && client_proto_len != 0) {
+        BIO_printf(bio_stdout,
+                   "Inconsistent SSL_get0_alpn_selected() for client!\n");
+        goto err;
+    }
+
+    if (server_proto == NULL && server_proto_len != 0) {
+        BIO_printf(bio_stdout,
+                   "Inconsistent SSL_get0_alpn_selected() for server!\n");
+        goto err;
+    }
 
     if (client_proto_len != server_proto_len) {
         BIO_printf(bio_stdout, "ALPN selected protocols differ!\n");
@@ -1523,8 +1535,10 @@ int main(int argc, char *argv[])
             ERR_print_errors(bio_err);
             goto end;
         }
-        SSL_CTX_set0_tmp_dh_pkey(s_ctx, dhpkey);
-        SSL_CTX_set0_tmp_dh_pkey(s_ctx2, dhpkey);
+        if (!SSL_CTX_set0_tmp_dh_pkey(s_ctx, dhpkey))
+            EVP_PKEY_free(dhpkey);
+        if (!SSL_CTX_set0_tmp_dh_pkey(s_ctx2, dhpkey))
+            EVP_PKEY_free(dhpkey);
     }
 #endif
 
