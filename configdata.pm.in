@@ -82,7 +82,7 @@ unless (caller) {
     use Pod::Usage;
 
     use lib '{- sourcedir('util', 'perl') -}';
-    use OpenSSL::fallback '{- sourcefile('external', 'perl', 'MODULES.txt') -}';
+    use OpenSSL::fallback;
 
     my $here = dirname($0);
 

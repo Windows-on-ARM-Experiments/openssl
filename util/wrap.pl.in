@@ -9,12 +9,7 @@ use File::Spec::Functions;
 BEGIN {
     # This method corresponds exactly to 'use OpenSSL::Util',
     # but allows us to use a platform specific file spec.
-    require {-
-         use Cwd qw(abs_path);
-
-         "'" . abs_path(catfile($config{sourcedir},
-                                'util', 'perl', 'OpenSSL', 'Util.pm')) . "'";
-         -};
+    require "$ENV{SRCTOP}/util/perl/OpenSSL/Util.pm";
     OpenSSL::Util->import();
 }
 
